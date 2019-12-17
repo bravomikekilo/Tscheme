@@ -2,7 +2,7 @@ from typing import Tuple as T
 from typing import Mapping, Set
 from ir import *
 from typing import List
-
+from ir_lit import *
 
 class Type(object):
 
