@@ -1,5 +1,5 @@
 from parsing import raw_atom
-from ir import parse_ir_expr
+from ir_parse import parse_ir_expr, parse_define
 from ir import *
 from syntax import *
 from type_sys import *
