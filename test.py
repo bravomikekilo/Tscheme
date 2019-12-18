@@ -132,6 +132,10 @@ load_ir_define_and_infer('test_src/define_take.rkt', ops)
 load_ir_define_and_infer('test_src/define_take_while.rkt', ops)
 load_ir_define_and_infer('test_src/define_drop.rkt', ops)
 load_ir_define_and_infer('test_src/define_drop_while.rkt', ops)
+load_ir_define_and_infer('test_src/define_foldl.rkt', ops)
+load_ir_define_and_infer('test_src/define_foldr.rkt', ops)
+load_ir_expr_and_infer('test_src/list_head.rkt', ops)
+load_ir_define_and_infer('test_src/define_concat.rkt', ops)
 
 #%%
 load_ir_expr_and_infer('test_src/plus1.rkt', ops)
