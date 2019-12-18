@@ -27,6 +27,9 @@ class IRVar(IRExpr):
         super(IRVar, self).__init__()
         self.v = v
 
+    def __str__(self):
+        return 'IRVar()'.format(self.v)
+
     def to_raw(self) -> RExpr:
         return RSymbol(self.v)
 

@@ -362,12 +362,12 @@ def parse_ir_expr(r_expr) -> (IRExpr, [str]):
                 return expr, errors
 
             if sym == 'list':
-                expr, cond_errors = parse_cond(r_expr)
+                expr, cond_errors = parse_list_form(r_expr)
                 errors.extend(cond_errors)
                 return expr, errors
 
             if sym == 'tuple':
-                expr, cond_errors = parse_cond(r_expr)
+                expr, cond_errors = parse_tuple_form(r_expr)
                 errors.extend(cond_errors)
                 return expr, errors
 

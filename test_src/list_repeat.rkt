@@ -1,0 +1,1 @@
+(lambda (n) (list n n n))

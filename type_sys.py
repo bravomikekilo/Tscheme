@@ -101,6 +101,18 @@ class TArr(Type):
     def ftv(self) -> Set[str]:
         return self.in_type.ftv().union(self.out_type.ftv())
 
+    @staticmethod
+    def func(*args: [Type]):
+        if len(args) == 0:
+            return TArr(TYPE_UNIT, TYPE_UNIT)
+        if len(args) == 1:
+            return TArr(TYPE_UNIT, args[0])
+
+        out_type = args[-1]
+        for arg in reversed(args[:-1]):
+            out_type = TArr(arg, out_type)
+        return out_type
+
 
 class Tuple(Type):
 

@@ -282,6 +282,11 @@ class InferSys(object):
             for (pat, arm) in ir_expr.arms:
                 pat_type, binds = self.infer_ir_pat(env, pat)
                 self.add_equation(v_type, pat_type)
+                if len(binds) > 0:
+                    print('get bindings from pat:', pat)
+                for t_var, t in binds:
+                    print(t_var, '=>', t)
+                binds = [(var, Schema.none(t)) for var, t in binds]
                 new_env = env.extend(binds)
                 arm_types.append(self.infer_ir_expr(new_env, arm))
 
@@ -313,7 +318,9 @@ class InferSys(object):
         if isinstance(pat, IRVarPat):
             if pat.var.v == '_':
                 return self.new_type_var(), []
-            t = self.infer_ir_expr(env, pat.var)
+
+            # t = self.infer_ir_expr(env, pat.var)
+            t = self.new_type_var()
             return t, [(pat.var, t)]
 
         if isinstance(pat, IRListPat):

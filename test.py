@@ -25,6 +25,8 @@ bool = TYPE_BOOL
 
 t1 = TVar('t1')
 t2 = TVar('t2')
+t3 = TVar('t3')
+t4 = TVar('t4')
 
 
 def listof(t_var: TVar):
@@ -32,16 +34,18 @@ def listof(t_var: TVar):
 
 
 ops = {
-    '+': Schema.none(TArr(number, TArr(number, number))),
-    '-': Schema.none(TArr(number, TArr(number, number))),
-    '*': Schema.none(TArr(number, TArr(number, number))),
-    '/': Schema.none(TArr(number, TArr(number, number))),
-    '=': Schema.none(TArr(number, TArr(number, bool))),
-    '>': Schema.none(TArr(number, TArr(number, bool))),
-    '<': Schema.none(TArr(number, TArr(number, bool))),
-    'rand': Schema.none(TArr(TYPE_UNIT, number)),
-    'Cons': Schema(TArr(t1, TArr(listof(t1), listof(t1))), [t1]),
-    'Null': Schema(listof(t2), [t2])
+    '+': Schema.none(TArr.func(number, number, number)),
+    '-': Schema.none(TArr.func(number, number, number)),
+    '*': Schema.none(TArr.func(number, number, number)),
+    '/': Schema.none(TArr.func(number, number, number)),
+    '=': Schema.none(TArr.func(number, number, bool)),
+    '>': Schema.none(TArr.func(number, number, bool)),
+    '<': Schema.none(TArr.func(number, number, bool)),
+    'rand': Schema.none(TArr.func(TYPE_UNIT, number)),
+    'cons': Schema.none(TArr.func(t3, listof(t3), listof(t3))),
+    'Cons': Schema(TArr.func(t1, listof(t1), listof(t1)), [t1]),
+    'Null': Schema(listof(t2), [t2]),
+    'null': Schema(listof(t4), [t4]),
 }
 
 
@@ -107,8 +111,12 @@ print('plus1_result:', plus1_result)
 load_ir_expr_and_infer('test_src/no_arg_func.rkt', ops)
 load_ir_expr_and_infer('test_src/rand_add.rkt', ops)
 
+#%% list form test
+load_ir_expr_and_infer('test_src/list_repeat.rkt', ops)
+
 #%%
 load_ir_expr_and_infer('test_src/match.rkt', ops)
+load_ir_define_and_infer('test_src/define_map.rkt', ops)
 
 #%%
 load_ir_expr_and_infer('test_src/plus1.rkt', ops)
