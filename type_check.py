@@ -46,14 +46,16 @@ class TypeChecker(object):
 
         return types, ctors, errors
 
-    def check_content(self, r_exprs: [RExpr], verbose=False) -> [str]:
+    def check_content(self, r_exprs: [RExpr], verbose=False) ->\
+            (Mapping[str, Type], Mapping[str, Type], [IRTerm], [str]):
         errors = []
+        ir_terms = []
         type_forms = [form for form in r_exprs if is_type_def(form)]
         other_forms = [form for form in r_exprs if not is_type_def(form)]
         types, ctors, type_errors = self.check_types(type_forms)
         if len(type_errors) > 0:
             errors.extend(type_errors)
-            return errors
+            return types, ctors, ir_terms, errors
 
         infer_sys = InferSys()
         type_env = TypeEnv.default()
@@ -80,6 +82,7 @@ class TypeChecker(object):
                     sym = head.v
                     if sym == 'define':
                         define, errs = parse_define(expr)
+                        ir_terms.append(define)
                         errors.extend(errs)
                         if len(errs) > 0:
                             continue
@@ -94,6 +97,7 @@ class TypeChecker(object):
                     else:
                         # parse IRExpr
                         ir_expr, errs = parse_ir_expr(expr)
+                        ir_terms.append(ir_expr)
                         errors.extend(errs)
                         if len(errs) > 0:
                             continue
@@ -103,6 +107,7 @@ class TypeChecker(object):
                 else:
                     if isinstance(head, RList):
                         ir_expr, errs = parse_ir_expr(expr)
+                        ir_terms.append(ir_expr)
                         errors.extend(errs)
                         if len(errors) > 0:
                             continue
@@ -114,10 +119,11 @@ class TypeChecker(object):
                         continue
             else:
                 lit = parse_lit(expr)
+                ir_terms.append(expr)
                 t = infer_sys.solve_ir_expr(type_env, lit)
                 if verbose:
                     print('literal: {} :: {}'.format(lit.to_raw(), t))
-        return errors
+        return types, ctors, ir_terms, errors
 
 
 def main():
@@ -135,7 +141,7 @@ def main():
     r_exprs = whole_program.parse(SRC)
 
     checker = TypeChecker()
-    errors = checker.check_content(r_exprs, verbose=not SILENT)
+    _, _, _, errors = checker.check_content(r_exprs, verbose=not SILENT)
     if len(errors) > 0:
         for error in errors:
             print(error)

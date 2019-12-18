@@ -176,3 +176,7 @@ class RList(RExpr):
             v.to_stream(stream)
         stream.add_token(']' if self.sq else ')')
         return
+
+
+def quote(expr: RExpr) -> RList:
+    return RList([RSymbol('quote'), expr])

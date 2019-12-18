@@ -1,24 +1,28 @@
+from abc import ABCMeta, abstractmethod
+
 from syntax import *
 
 
-class IRTerm(object):
+class IRTerm(object, metaclass=ABCMeta):
 
+    @abstractmethod
     def to_raw(self) -> RExpr:
         raise NotImplementedError()
 
+    def to_racket(self) -> RExpr:
+        return self.to_raw()
+
+    @abstractmethod
     def print(self, indent=0) -> [str]:
         raise NotImplementedError()
 
 
-class IRExpr(IRTerm):
+class IRExpr(IRTerm, metaclass=ABCMeta):
     """
     base class for IRExpr
     """
     def __init__(self):
         super(IRExpr, self).__init__()
-
-    def to_raw(self) -> RExpr:
-        raise NotImplementedError()
 
 
 class IRVar(IRExpr):
@@ -49,6 +53,11 @@ class IRApply(IRExpr):
         head.extend(arg.to_raw() for arg in self.args)
         return RList(head)
 
+    def to_racket(self) -> RExpr:
+        head = [self.f.to_racket()]
+        head.extend(arg.to_racket() for arg in self.args)
+        return RList(head)
+
     def print(self, indent=0) -> [str]:
         headline = indent * ' ' + 'apply'
         ret = [headline]
@@ -70,7 +79,14 @@ class IRLet(IRExpr):
     def to_raw(self) -> RExpr:
         return RList([
             RSymbol("let"),
-            RList([self.sym.to_raw(), self.d.to_raw()]),
+            RList([RList([self.sym.to_raw(), self.d.to_raw()])]),
+            self.e.to_raw()
+        ])
+
+    def to_racket(self) -> RExpr:
+        return RList([
+            RSymbol("let"),
+            RList([RList([self.sym.to_racket(), self.d.to_racket()])]),
             self.e.to_raw()
         ])
 
@@ -94,6 +110,9 @@ class IRIf(IRExpr):
     def to_raw(self) -> RExpr:
         return RList([RSymbol('if'), self.then.to_raw(), self.el.to_raw()])
 
+    def to_racket(self) -> RExpr:
+        return RList([RSymbol('if'), self.then.to_racket(), self.el.to_racket()])
+
     def print(self, indent=0) -> [str]:
         headline = indent * ' ' + 'if'
         ret = [headline]
@@ -113,6 +132,12 @@ class IRCond(IRExpr):
 
     def to_raw(self) -> RExpr:
         conds = [RList([cond.to_raw(), body.to_raw()]) for (cond, body) in self.conds]
+        ret = [RSymbol('cond')]
+        ret.extend(conds)
+        return RList(ret)
+
+    def to_racket(self) -> RExpr:
+        conds = [RList([cond.to_racket(), body.to_racket()]) for (cond, body) in self.conds]
         ret = [RSymbol('cond')]
         ret.extend(conds)
         return RList(ret)
@@ -144,6 +169,10 @@ class IRLambda(IRExpr):
         args = RList(list(arg.to_raw() for arg in self.args))
         return RList([RSymbol("lambda"), args, self.body.to_raw()])
 
+    def to_racket(self) -> RExpr:
+        args = RList(list(arg.to_racket() for arg in self.args))
+        return RList([RSymbol("lambda"), args, self.body.to_racket()])
+
     def print(self, indent=0) -> [str]:
         headline = indent * ' ' + 'lambda'
         ret = [headline]
@@ -161,6 +190,11 @@ class IRListCtor(IRExpr):
         self.args = args
 
     def to_raw(self) -> RExpr:
+        ret = [RSymbol("list")]
+        ret.extend((arg.to_raw() for arg in self.args))
+        return RList(ret)
+
+    def to_racket(self) -> RExpr:
         ret = [RSymbol("list")]
         ret.extend((arg.to_raw() for arg in self.args))
         return RList(ret)
@@ -184,6 +218,11 @@ class IRTupleCtor(IRExpr):
         ret.extend((arg.to_raw() for arg in self.args))
         return RList(ret)
 
+    def to_racket(self) -> RExpr:
+        ret = [RSymbol("vector")]
+        ret.extend((arg.to_racket() for arg in self.args))
+        return RList(ret)
+
     def print(self, indent=0) -> [str]:
         headline = indent * ' ' + 'tuple'
         ret = [headline]
@@ -201,6 +240,10 @@ class IRSet(IRExpr):
 
     def to_raw(self) -> RExpr:
         ret = [RSymbol("set!"), self.sym.to_raw(), self.var.to_raw()]
+        return RList(ret)
+
+    def to_racket(self) -> RExpr:
+        ret = [RSymbol("set!"), self.sym.to_racket(), self.var.to_racket()]
         return RList(ret)
 
     def print(self, indent=0) -> [str]:
@@ -221,6 +264,11 @@ class IRBegin(IRExpr):
         ret.extend((arg.to_raw() for arg in self.args))
         return RList(ret)
 
+    def to_racket(self) -> RExpr:
+        ret = [RSymbol("begin!")]
+        ret.extend((arg.to_racket() for arg in self.args))
+        return RList(ret)
+
     def print(self, indent=0) -> [str]:
         headline = indent * ' ' + 'begin'
         ret = [headline]
@@ -238,9 +286,14 @@ class IRDefine(IRTerm):
         self.body = body
 
     def to_raw(self) -> RExpr:
-        head = [self.sym]
+        head = [self.sym.to_raw()]
         head.extend(var.to_raw() for var in self.args)
         return RList([RSymbol("define"), RList(head), self.body.to_raw()])
+
+    def to_racket(self) -> RExpr:
+        head = [self.sym.to_racket()]
+        head.extend(var.to_racket() for var in self.args)
+        return RList([RSymbol("define"), RList(head), self.body.to_racket()])
 
     def print(self, indent=0) -> [str]:
         headline = indent * ' ' + 'define {}'.format(self.sym.v)

@@ -38,6 +38,12 @@ class IRListPat(IRPat):
             ret.append(v.to_raw())
         return RList(ret)
 
+    def to_racket(self) -> RExpr:
+        ret = [RSymbol('list')]
+        for v in self.vs:
+            ret.append(v.to_racket())
+        return RList(ret)
+
     def print(self, indent=0) -> [str]:
         headline = indent * ' ' + 'list'
         ret = [headline]
@@ -56,6 +62,12 @@ class IRTuplePat(IRPat):
         ret = [RSymbol('tuple')]
         for v in self.vs:
             ret.append(v.to_raw())
+        return RList(ret)
+
+    def to_racket(self) -> RExpr:
+        ret = [RSymbol('vector')]
+        for v in self.vs:
+            ret.append(v.to_racket())
         return RList(ret)
 
     def print(self, indent=0) -> [str]:
@@ -77,6 +89,18 @@ class IRCtorPat(IRPat):
         ret = [RSymbol(self.ctor.v)]
         for v in self.vs:
             ret.append(v.to_raw())
+        return RList(ret)
+
+    def to_racket(self) -> RExpr:
+        ctor_name = self.ctor.v
+        if ctor_name == 'Cons':
+            ret = [RSymbol('cons')]
+        elif ctor_name == 'Null':
+            return quote(RList([]))
+        else:
+            ret = [RSymbol('list'), quote(RSymbol(ctor_name))]
+        for v in self.vs:
+            ret.append(v.to_racket())
         return RList(ret)
 
     def print(self, indent=0) -> [str]:
@@ -110,7 +134,13 @@ class IRMatch(IRExpr):
     def to_raw(self) -> RExpr:
         ret = [RSymbol("match"), self.v.to_raw()]
         for pat, arm in self.arms:
-            ret.append(RList([pat.to_raw(), arm.to_raw()]))
+            ret.append(RList([pat.to_raw(), arm.to_raw()], sq=True))
+        return RList(ret)
+
+    def to_racket(self) -> RExpr:
+        ret = [RSymbol("match"), self.v.to_raw()]
+        for pat, arm in self.arms:
+            ret.append(RList([pat.to_racket(), arm.to_racket()], sq=True))
         return RList(ret)
 
     def print(self, indent=0) -> [str]:
