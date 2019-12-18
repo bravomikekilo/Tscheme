@@ -116,13 +116,13 @@ class IRMatch(IRExpr):
     def print(self, indent=0) -> [str]:
         headline = indent * ' ' + 'match'
         ret = [headline]
-        ret.append(indent * ' ' + '[')
+        ret.extend(self.v.print(indent=indent + 2))
 
         for (pat, arm) in self.arms:
+            ret.append(indent * ' ' + '[')
             ret.extend(pat.print(indent=indent + 2))
             ret.append(indent * ' ' + '->')
             ret.extend(arm.print(indent=indent + 2))
-
-        ret.append(indent * ' ' + ']')
+            ret.append(indent * ' ' + ']')
         return ret
 

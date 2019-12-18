@@ -37,7 +37,7 @@ class IRBool(IRLit):
         return RBool(self.v)
 
     def print(self, indent=0) -> [str]:
-        return [' ' * indent + "#t" if self.v else "#f"]
+        return [' ' * indent + ("#t" if self.v else "#f")]
 
 
 class IRFloat(IRLit):

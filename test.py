@@ -22,6 +22,15 @@ print(plus1_ir_lit)
 #%%
 number = TYPE_NUMBER
 bool = TYPE_BOOL
+
+t1 = TVar('t1')
+t2 = TVar('t2')
+
+
+def listof(t_var: TVar):
+    return Defined("List", [t_var])
+
+
 ops = {
     '+': Schema.none(TArr(number, TArr(number, number))),
     '-': Schema.none(TArr(number, TArr(number, number))),
@@ -30,6 +39,9 @@ ops = {
     '=': Schema.none(TArr(number, TArr(number, bool))),
     '>': Schema.none(TArr(number, TArr(number, bool))),
     '<': Schema.none(TArr(number, TArr(number, bool))),
+    'rand': Schema.none(TArr(TYPE_UNIT, number)),
+    'Cons': Schema(TArr(t1, TArr(listof(t1), listof(t1))), [t1]),
+    'Null': Schema(listof(t2), [t2])
 }
 
 
@@ -46,6 +58,7 @@ def load_ir_expr_and_infer(path, ops):
     env = TypeEnv(ops)
     infer_sys = InferSys()
     ir_tvar = infer_sys.infer_ir_expr(env, ir)
+    print('result t_var:', ir_tvar)
     subst = infer_sys.solve_curr_equation()
     ir_result = ir_tvar.apply(subst)
     print('result:', ir_result)
@@ -90,11 +103,18 @@ except UniException as e:
 
 print('plus1_result:', plus1_result)
 
+#%%
+load_ir_expr_and_infer('test_src/no_arg_func.rkt', ops)
+load_ir_expr_and_infer('test_src/rand_add.rkt', ops)
+
+#%%
+load_ir_expr_and_infer('test_src/match.rkt', ops)
 
 #%%
 load_ir_expr_and_infer('test_src/plus1.rkt', ops)
 load_ir_expr_and_infer('test_src/add.rkt', ops)
 load_ir_expr_and_infer('test_src/id.rkt', ops)
+load_ir_expr_and_infer('test_src/compose.rkt', ops)
 
 #%%
 load_ir_define_and_infer('test_src/factorial.rkt', ops)

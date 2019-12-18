@@ -3,9 +3,10 @@ from ir_lit import *
 from ir_pat import *
 from type_sys import *
 from typing import Mapping
+from collections import OrderedDict
 
 
-def parse_lit(expr: RExpr) -> IRExpr:
+def parse_lit(expr: RExpr) -> IRLit:
     if isinstance(expr, RSymbol):
         return IRSymbol(expr.v)
     elif isinstance(expr, RFloat):
@@ -186,7 +187,7 @@ def parse_pat(r_expr: RExpr) -> (IRPat, [str]):
             if sym == 'list':
                 # list pattern
                 subs = []
-                for r_sub in head[1:]:
+                for r_sub in r_expr.v[1:]:
                     sub, sub_errors = parse_pat(r_sub)
                     subs.append(sub)
                     errors.extend(sub_errors)
@@ -196,7 +197,7 @@ def parse_pat(r_expr: RExpr) -> (IRPat, [str]):
             if sym == 'tuple':
                 # tuple pattern
                 subs = []
-                for r_sub in head[1:]:
+                for r_sub in r_expr.v[1:]:
                     sub, sub_errors = parse_pat(r_sub)
                     subs.append(sub)
                     errors.extend(sub_errors)
@@ -206,7 +207,7 @@ def parse_pat(r_expr: RExpr) -> (IRPat, [str]):
             # ctor pattern
             ctor = IRVar(sym)
             subs = []
-            for r_sub in head[1:]:
+            for r_sub in r_expr.v[1:]:
                 sub, sub_errors = parse_pat(r_sub)
                 subs.append(sub)
                 errors.extend(sub_errors)
@@ -217,10 +218,10 @@ def parse_pat(r_expr: RExpr) -> (IRPat, [str]):
             errors.append("pattern head should be a symbol")
             return pat, errors
     else:
-        lit, lit_errors = parse_lit(r_expr)
-        errors.extend(lit_errors)
+        lit = parse_lit(r_expr)
+        # errors.extend(lit_errors)
         if isinstance(lit, IRSymbol):
-            pat = IRVarPat(lit.v)
+            pat = IRVarPat(IRVar(lit.v))
         else:
             pat = IRLitPat(lit)
 
@@ -243,7 +244,7 @@ def parse_match(r_expr: RList) -> (IRExpr, [str]):
                 errors.append("wrong arity in match arm")
                 continue
             r_pat = r_branch.v[0]
-            r_arm = r_branch.v[0]
+            r_arm = r_branch.v[1]
             pat, pat_errors = parse_pat(r_pat)
             arm, atm_errors = parse_ir_expr(r_arm)
             arms.append((pat, arm))
@@ -355,6 +356,11 @@ def parse_ir_expr(r_expr) -> (IRExpr, [str]):
                 errors.extend(cond_errors)
                 return expr, errors
 
+            if sym == 'match':
+                expr, cond_errors = parse_match(r_expr)
+                errors.extend(cond_errors)
+                return expr, errors
+
             if sym == 'list':
                 expr, cond_errors = parse_cond(r_expr)
                 errors.extend(cond_errors)
@@ -429,9 +435,9 @@ def parse_type_decl(env: (Set[str], Mapping[str, int]), r_expr: RExpr) -> (Type,
             ret_type = TVar(sym)
         return ret_type, errors
     elif isinstance(r_expr, RList):
-        if len(r_expr.v) == 0 or not isinstance(r_expr.v[1], RSymbol):
+        if len(r_expr.v) == 0 or not isinstance(r_expr.v[0], RSymbol):
             errors.append('type must have name')
-        type_name = r_expr.v[1].v
+        type_name = r_expr.v[0].v
         subs = []
         for sub in r_expr.v[1:]:
             sub_t, sub_errors = parse_type_decl(env, sub)
@@ -457,13 +463,13 @@ def parse_type_decl(env: (Set[str], Mapping[str, int]), r_expr: RExpr) -> (Type,
                 for t in reversed(subs[:-1]):
                     ret_type = TArr(t, ret_type)
                 return ret_type, errors
-            pass
         else:
+            print("unknown defined type {}".format(type_name))
             errors.append("unknown defined type {}".format(type_name))
 
     else:
         errors.append("type must be a symbol or a list")
-        return ret_type, errors
+    return ret_type, errors
 
 
 def parse_define_ctors(defined: Type,
@@ -482,7 +488,7 @@ def parse_define_ctors(defined: Type,
             errors.append("data constructor name must be symbol")
             continue
         ctor_name = r_ctor.v[0].v
-        r_args = r_ctor[1:]
+        r_args = r_ctor.v[1:]
         arg_types = []
         for r_arg in r_args:
             arg_type, arg_errors = parse_type_decl(env, r_arg)
@@ -494,9 +500,10 @@ def parse_define_ctors(defined: Type,
             ctor_type = TArr(arg_type, ctor_type)
 
         ctors.append((ctor_name, ctor_type))
+    return ctors, errors
 
 
-def parse_define_sum(r_expr: RList) -> (Type, [str]):
+def parse_define_sum(r_expr: RList) -> (Defined, [str]):
     errors = []
     ret_type = None
     if len(r_expr.v) < 3:
@@ -546,6 +553,29 @@ def is_type_def(r_expr: RExpr) -> bool:
         return r_expr.v[0] == 'define-sum'
     else:
         return False
+
+
+def extract_and_check_type(r_exprs: [RList]):
+    types = OrderedDict()
+    ctors = []
+    errors = []
+
+    for r_expr in r_exprs:
+        defined, defined_errors = parse_define_sum(r_expr)
+        errors.extend(defined_errors)
+        if defined.name not in types:
+            types[defined.name] = defined
+        else:
+            errors.append("type {} has been defined".format(defined.name))
+    if len(errors) > 0:
+        return types, ctors, errors
+
+    arity = {k: len(v.types) for k, v in types.items()}
+    for r_expr, (name, t) in zip(r_exprs, types.items()):
+        parsed_ctors, ctor_errors = parse_define_ctors(t, arity, r_expr)
+        ctors.extend(parsed_ctors)
+
+    return types, ctors, errors
 
 
 def parse_r(r_exprs: [RExpr]) -> ([IRDefine], [IRExpr], [str]):

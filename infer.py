@@ -83,13 +83,13 @@ def unify(t1: Type, t2: Type) -> Subst:
     if isinstance(t1, Tuple) and isinstance(t2, Tuple):
         if len(t1.types) != len(t2.types):
             raise TypeMismatchException(t1, t2)
-        pairs = [zip(t1.types, t2.types)]
+        pairs = list(zip(t1.types, t2.types))
         return unifies(pairs)
 
     if isinstance(t1, Defined) and isinstance(t2, Defined):
         if t1.name != t2.name:
             raise TypeMismatchException(t1, t2)
-        pairs = [zip(t1.types, t2.types)]
+        pairs = list(zip(t1.types, t2.types))
         return unifies(pairs)
 
     raise TypeMismatchException(t1, t2)
@@ -211,6 +211,8 @@ class InferSys(object):
             for arg in reversed(ir_expr.args):
                 arg_type = self.infer_ir_expr(env, arg)
                 out_type = TArr(arg_type, out_type)
+            if len(ir_expr.args) == 0:
+                out_type = TArr(TYPE_UNIT, out_type)
             self.add_equation(out_type, f_type)
             return ret_type
 
@@ -230,9 +232,11 @@ class InferSys(object):
             for arg in ir_expr.args:
                 args.append((arg, Schema.none(self.new_type_var())))
             new_env = env.extend(args)
+            if len(ir_expr.args) == 0:
+                args.append((None, Schema.none(TYPE_UNIT)))
             body_type = self.infer_ir_expr(new_env, ir_expr.body)
             ret = body_type
-            for arg, schema in reversed(args):
+            for _, schema in reversed(args):
                 ret = TArr(schema.type, ret)
             return ret
 

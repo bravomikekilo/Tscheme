@@ -71,6 +71,7 @@ TYPE_STRING = TConst("String")
 TYPE_SYMBOL = TConst("Symbol")
 TYPE_UNIT = TConst("Unit")
 
+
 class TArr(Type):
 
     def __init__(self, in_type: Type, out_type: Type):
@@ -79,6 +80,8 @@ class TArr(Type):
         self.out_type = out_type
 
     def __str__(self):
+        if isinstance(self.in_type, TArr):
+            return '({}) -> {}'.format(str(self.in_type), str(self.out_type))
         return '{} -> {}'.format(str(self.in_type), str(self.out_type))
 
     def __repr__(self):
@@ -186,6 +189,7 @@ class Defined(Type):
         for t in self.types:
             ret.extend(t.find_defined(name))
         return ret
+
 
 class Schema(object):
 
