@@ -550,7 +550,7 @@ def is_type_def(r_expr: RExpr) -> bool:
     if isinstance(r_expr, RList) \
             and len(r_expr.v) > 0 \
             and isinstance(r_expr.v[0], RSymbol):
-        return r_expr.v[0] == 'define-sum'
+        return r_expr.v[0].v == 'define-sum'
     else:
         return False
 

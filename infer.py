@@ -125,7 +125,39 @@ class TypeEnv(object):
 
     @staticmethod
     def empty():
-        return dict()
+        return TypeEnv(dict())
+
+    @staticmethod
+    def default():
+        number = TYPE_NUMBER
+        bool = TYPE_BOOL
+
+        t1 = TVar('t1')
+        t2 = TVar('t2')
+        t3 = TVar('t3')
+        t4 = TVar('t4')
+        t5 = TVar('t5')
+
+        def listof(t_var: TVar):
+            return Defined("List", [t_var])
+
+        ops = {
+            '+': Schema.none(TArr.func(number, number, number)),
+            '-': Schema.none(TArr.func(number, number, number)),
+            '*': Schema.none(TArr.func(number, number, number)),
+            '/': Schema.none(TArr.func(number, number, number)),
+            '=': Schema.none(TArr.func(number, number, bool)),
+            '>': Schema.none(TArr.func(number, number, bool)),
+            '<': Schema.none(TArr.func(number, number, bool)),
+            'rand': Schema.none(TArr.func(TYPE_UNIT, number)),
+            'cons': Schema.none(TArr.func(t3, listof(t3), listof(t3))),
+            'Cons': Schema(TArr.func(t1, listof(t1), listof(t1)), [t1]),
+            'Null': Schema(listof(t2), [t2]),
+            'null': Schema(listof(t4), [t4]),
+            'print': Schema(TArr.func(t5, TYPE_UNIT), [t5]),
+        }
+
+        return TypeEnv(ops)
 
     def apply(self, subst):
         new_mapping = {k: v.apply(subst) for k, v in self.internal}
@@ -157,8 +189,23 @@ class InferSys(object):
         ret.reverse()
         return TVar(''.join(chr(c) for c in ret))
 
+    def new_type_vars(self, num):
+        return [self.new_type_var() for _ in range(num)]
+
+    def generalize(self, t: Type):
+        subst = dict()
+        ftv = list(t.ftv())
+        ftv.sort()
+        ps = set()
+        for f_var in ftv:
+            p = self.new_type_var()
+            subst[f_var] = p
+            ps.add(p.v)
+        t = t.apply(subst)
+        return t.gen(ps)
+
     def add_equation(self, left: Type, right: Type):
-        print('add equation {} = {}'.format(left, right))
+        # print('add equation {} = {}'.format(left, right))
         self.equations.append((left, right))
 
     def add_equations(self, types: [Type]):
@@ -382,6 +429,19 @@ class InferSys(object):
 
         return define_type
 
+    def solve_ir_expr(self, env: TypeEnv, expr: IRExpr):
+        t = self.infer_ir_expr(env, expr)
+        subst = self.solve_curr_equation()
+        return t.apply(subst)
+
+    def solve_ir_define(self, env: TypeEnv, define: IRDefine):
+        t = self.infer_ir_define(env, define)
+        subst = self.solve_curr_equation()
+        return t.apply(subst)
+
     def solve_curr_equation(self) -> Subst:
         return unifies(self.equations)
+
+
+
 

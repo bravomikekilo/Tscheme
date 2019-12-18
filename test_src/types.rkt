@@ -14,6 +14,3 @@
     [Rect Number Number]
     [Circle Number])
 
-(define-sum Shape
-    [Rect Number Number]
-    [Circle Number])

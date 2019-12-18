@@ -5,7 +5,7 @@ import parsy
 
 #%%
 
-with open('test_src/tree.rkt') as f:
+with open('test_src/types.rkt') as f:
     src = f.read()
 r_exprs, reminder = raw_atom.sep_by(parsy.regex(r'\s*')).parse_partial(src)
 
