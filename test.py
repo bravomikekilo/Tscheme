@@ -2,7 +2,7 @@ from parsing import raw_atom
 from ir_parse import parse_ir_expr, parse_define
 from ir import *
 from syntax import *
-from type_sys import *
+from infer import *
 
 #%%
 with open('test_src/plus1.rkt') as f:

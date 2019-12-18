@@ -21,8 +21,6 @@ class IRExpr(IRTerm):
         raise NotImplementedError()
 
 
-
-
 class IRVar(IRExpr):
 
     def __init__(self, v: str):
@@ -153,6 +151,81 @@ class IRLambda(IRExpr):
         return ret
 
 
+class IRListCtor(IRExpr):
+
+    def __init__(self, args: [IRExpr]):
+        super(IRListCtor, self).__init__()
+        self.args = args
+
+    def to_raw(self) -> RExpr:
+        ret = [RSymbol("list")]
+        ret.extend((arg.to_raw() for arg in self.args))
+        return RList(ret)
+
+    def print(self, indent=0) -> [str]:
+        headline = indent * ' ' + 'list'
+        ret = [headline]
+        for arg in self.args:
+            ret.extend(arg.print(indent=indent + 2))
+        return ret
+
+
+class IRTupleCtor(IRExpr):
+
+    def __init__(self, args: [IRExpr]):
+        super(IRTupleCtor, self).__init__()
+        self.args = args
+
+    def to_raw(self) -> RExpr:
+        ret = [RSymbol("tuple")]
+        ret.extend((arg.to_raw() for arg in self.args))
+        return RList(ret)
+
+    def print(self, indent=0) -> [str]:
+        headline = indent * ' ' + 'tuple'
+        ret = [headline]
+        for arg in self.args:
+            ret.extend(arg.print(indent=indent + 2))
+        return ret
+
+
+class IRSet(IRExpr):
+
+    def __init__(self, sym: IRVar, var: IRExpr):
+        super(IRSet, self).__init__()
+        self.sym = sym
+        self.var = var
+
+    def to_raw(self) -> RExpr:
+        ret = [RSymbol("set!"), self.sym.to_raw(), self.var.to_raw()]
+        return RList(ret)
+
+    def print(self, indent=0) -> [str]:
+        headline = indent * ' ' + 'set! {}'.format(self.sym.v)
+        ret = [headline]
+        ret.extend(self.var.print(indent=indent + 2))
+        return ret
+
+
+class IRBegin(IRExpr):
+
+    def __init__(self, args: [IRExpr]):
+        super(IRBegin, self).__init__()
+        self.args = args
+
+    def to_raw(self) -> RExpr:
+        ret = [RSymbol("begin!")]
+        ret.extend((arg.to_raw() for arg in self.args))
+        return RList(ret)
+
+    def print(self, indent=0) -> [str]:
+        headline = indent * ' ' + 'begin'
+        ret = [headline]
+        for arg in self.args:
+            ret.extend(arg.print(indent=indent + 2))
+        return ret
+
+
 class IRDefine(IRTerm):
 
     def __init__(self, sym: IRVar, args: [IRVar], body: IRExpr):
@@ -174,6 +247,5 @@ class IRDefine(IRTerm):
         ret.append(indent * ' ' + 'to')
         ret.extend(self.body.print(indent + 2))
         return ret
-
 
 

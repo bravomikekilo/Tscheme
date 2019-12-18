@@ -1,5 +1,5 @@
 #%%
-from type_sys import *
+from infer import *
 
 #%%
 def show_su(su):
