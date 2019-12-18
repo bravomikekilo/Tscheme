@@ -5,21 +5,6 @@ from syntax import *
 from infer import *
 
 #%%
-with open('test_src/plus1.rkt') as f:
-    plus1_src = f.read()
-print(plus1_src)
-
-#%%
-plus1_r = raw_atom.parse(plus1_src)
-
-
-#%%
-plus1_ir, ir_errors = parse_ir_expr(plus1_r)
-print('ir_errors:', ir_errors)
-plus1_ir_lit = '\n'.join(plus1_ir.print())
-print(plus1_ir_lit)
-
-#%%
 number = TYPE_NUMBER
 bool = TYPE_BOOL
 
@@ -52,7 +37,7 @@ ops = {
 def load_ir_expr_and_infer(path, ops):
     with open(path, 'r') as f:
         src = f.read()
-    r = raw_atom.parse(src)
+    r, _ = raw_atom.parse_partial(src)
     ir, errors = parse_ir_expr(r)
     if len(errors) > 0:
         for error in errors:
@@ -63,7 +48,11 @@ def load_ir_expr_and_infer(path, ops):
     infer_sys = InferSys()
     ir_tvar = infer_sys.infer_ir_expr(env, ir)
     print('result t_var:', ir_tvar)
-    subst = infer_sys.solve_curr_equation()
+    try:
+        subst = infer_sys.solve_curr_equation()
+    except UniException as e:
+        print(e.why)
+        raise e
     ir_result = ir_tvar.apply(subst)
     print('result:', ir_result)
     return ir_tvar, subst, ir_result
@@ -73,7 +62,7 @@ def load_ir_define_and_infer(path, ops):
 
     with open(path, 'r') as f:
         src = f.read()
-    r = raw_atom.parse(src)
+    r, _ = raw_atom.parse_partial(src)
     ir_define, errors = parse_define(r)
     if len(errors) > 0:
         for error in errors:
@@ -84,10 +73,30 @@ def load_ir_define_and_infer(path, ops):
     infer_sys = InferSys()
     ir_tvar = infer_sys.infer_ir_define(env, ir_define)
     print('result t_var:', ir_tvar)
-    subst = infer_sys.solve_curr_equation()
+    try:
+        subst = infer_sys.solve_curr_equation()
+    except UniException as e:
+        print(e.why)
+        raise e
     ir_result = ir_tvar.apply(subst)
     print('result:', ir_result)
     return ir_tvar, subst, ir_result
+
+
+#%%
+with open('test_src/plus1.rkt') as f:
+    plus1_src = f.read()
+print(plus1_src)
+
+#%%
+plus1_r = raw_atom.parse(plus1_src)
+
+
+#%%
+plus1_ir, ir_errors = parse_ir_expr(plus1_r)
+print('ir_errors:', ir_errors)
+plus1_ir_lit = '\n'.join(plus1_ir.print())
+print(plus1_ir_lit)
 
 #%%
 
@@ -117,12 +126,19 @@ load_ir_expr_and_infer('test_src/list_repeat.rkt', ops)
 #%%
 load_ir_expr_and_infer('test_src/match.rkt', ops)
 load_ir_define_and_infer('test_src/define_map.rkt', ops)
+load_ir_define_and_infer('test_src/define_zip.rkt', ops)
+load_ir_define_and_infer('test_src/define_zip_with.rkt', ops)
+load_ir_define_and_infer('test_src/define_take.rkt', ops)
+load_ir_define_and_infer('test_src/define_take_while.rkt', ops)
+load_ir_define_and_infer('test_src/define_drop.rkt', ops)
+load_ir_define_and_infer('test_src/define_drop_while.rkt', ops)
 
 #%%
 load_ir_expr_and_infer('test_src/plus1.rkt', ops)
 load_ir_expr_and_infer('test_src/add.rkt', ops)
 load_ir_expr_and_infer('test_src/id.rkt', ops)
 load_ir_expr_and_infer('test_src/compose.rkt', ops)
+load_ir_expr_and_infer('test_src/apply.rkt', ops)
 
 #%%
 load_ir_define_and_infer('test_src/factorial.rkt', ops)

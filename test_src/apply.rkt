@@ -1,0 +1,1 @@
+(lambda (f x) (f x))
