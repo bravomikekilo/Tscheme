@@ -17,6 +17,9 @@ def parse_lit(expr: RExpr) -> IRLit:
         return IRBool(expr.v)
     elif isinstance(expr, RString):
         return IRString(expr.v)
+    elif isinstance(expr, RList):
+        ret = [parse_lit(v) for v in expr.v]
+        return IRList(ret)
     else:
         raise ValueError('expr {} is not a literal'.format(expr))
 

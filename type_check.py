@@ -3,8 +3,7 @@ from infer import *
 from ir_parse import is_type_def, parse_define_sum, parse_define_ctors
 from ir_parse import parse_define, parse_ir_expr, parse_lit
 from collections import OrderedDict
-from parsing import raw_atom
-import parsy
+from parsing import whole_program
 
 from argparse import ArgumentParser
 
@@ -88,7 +87,10 @@ class TypeChecker(object):
                         s = infer_sys.generalize(t)
                         type_env = type_env.add(define.sym, s)
                         if verbose:
-                            print('define: {} :: {}'.format(define.to_raw(), t))
+                            if s.is_dummy():
+                                print('define: {} :: {}'.format(define.sym.v, t))
+                            else:
+                                print('define: {} :: {}'.format(define.sym.v, s))
                     else:
                         # parse IRExpr
                         ir_expr, errs = parse_ir_expr(expr)
@@ -130,10 +132,10 @@ def main():
     with open(SCRIPT_PATH, 'r') as f:
         SRC = f.read()
 
-    r_exprs, reminder = raw_atom.sep_by(parsy.regex(r'\s*')).parse_partial(SRC)
+    r_exprs = whole_program.parse(SRC)
 
     checker = TypeChecker()
-    errors = checker.check_content(r_exprs, verbose=True)
+    errors = checker.check_content(r_exprs, verbose=not SILENT)
     if len(errors) > 0:
         for error in errors:
             print(error)

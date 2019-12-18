@@ -62,6 +62,9 @@ class IRSymbol(IRLit):
     def to_lit(self) -> RExpr:
         return RSymbol(self.v)
 
+    def to_raw(self) -> RExpr:
+        return RList([RSymbol('quote'), RSymbol(self.v)])
+
     def print(self, indent=0) -> [str]:
         return [' ' * indent + "'" + str(self.v)]
 
@@ -81,12 +84,13 @@ class IRString(IRLit):
 
 class IRList(IRLit):
 
-    def __init__(self, v: [IRLit]):
+    def __init__(self, v: [IRLit], sq=False):
         super(IRList, self).__init__()
         self.v = v
+        self.sq = sq
 
     def to_lit(self) -> RExpr:
-        return RList([lit.to_lit() for lit in self.v])
+        return RList([lit.to_lit() for lit in self.v], sq=self.sq)
 
     def to_raw(self) -> RExpr:
         return RList([RSymbol("quote"), self.to_lit()])

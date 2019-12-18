@@ -214,6 +214,9 @@ class Schema(object):
         vars_str = '.'.join(str(v) for v in self.vars)
         return 'forall {} => {}'.format(vars_str, str(self.type))
 
+    def is_dummy(self) -> bool:
+        return len(self.vars) == 0
+
     def ftv(self):
         return self.type.ftv().difference(set(v.v for v in self.vars))
 

@@ -29,7 +29,7 @@ def slist():
         yield regex(r'\s*') >> parsy.string(')')
     else:
         yield regex(r'\s*') >> parsy.string(']')
-    return RList(atoms)
+    return RList(atoms, sq=forward == '[')
 
 
 @generate
@@ -50,6 +50,27 @@ string = regex(r'''"[^"]*"''').map(lambda x: RString(x[1:-1]))
 
 raw_atom = number | symbol | string | slist
 
+
+@generate
+def atom():
+    quote = yield parsy.string("'").optional()
+    ret = yield raw_atom
+
+    if quote is not None:
+        return RList([RSymbol('quote'), ret])
+    else:
+        return ret
+
+
+@generate
+def whole_program():
+    """
+    parse whole program
+    """
+    yield regex(r'\s*')
+    atoms = yield atom.sep_by(regex(r'\s*'))
+    yield regex(r'\s*')
+    return atoms
 
 
 

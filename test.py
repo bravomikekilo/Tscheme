@@ -1,4 +1,4 @@
-from parsing import raw_atom
+from parsing import whole_program, atom
 from ir_parse import parse_ir_expr, parse_define
 from ir import *
 from syntax import *
@@ -37,7 +37,7 @@ ops = {
 def load_ir_expr_and_infer(path, ops):
     with open(path, 'r') as f:
         src = f.read()
-    r, _ = raw_atom.parse_partial(src)
+    r, _ = atom.parse_partial(src)
     ir, errors = parse_ir_expr(r)
     if len(errors) > 0:
         for error in errors:
@@ -62,7 +62,7 @@ def load_ir_define_and_infer(path, ops):
 
     with open(path, 'r') as f:
         src = f.read()
-    r, _ = raw_atom.parse_partial(src)
+    r, _ = atom.parse_partial(src)
     ir_define, errors = parse_define(r)
     if len(errors) > 0:
         for error in errors:
@@ -89,7 +89,7 @@ with open('test_src/plus1.rkt') as f:
 print(plus1_src)
 
 #%%
-plus1_r = raw_atom.parse(plus1_src)
+plus1_r = atom.parse(plus1_src)
 
 
 #%%
