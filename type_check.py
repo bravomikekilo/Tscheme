@@ -94,6 +94,7 @@ class TypeChecker(object):
                         if define.anno is not None:
                             anno = define.anno
                             matched, subst = confirm(t, anno)
+                            print('origin solved type', t)
                             if not matched:
                                 msg = 'define {} type mismatch, infered {}, but annotation is {}'\
                                     .format(define.sym.v, t.apply(subst), anno)

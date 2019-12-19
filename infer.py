@@ -484,18 +484,15 @@ def confirm(infered: Type, anno: Type, subst=None) -> (bool, Mapping[str, TVar])
         return True, subst
 
     if isinstance(infered, TVar) and isinstance(anno, TVar):
-        if infered.v == anno.v:
-            return True, dict()
-        else:
-            if infered.v in subst.keys():
-                trans = infered.apply(subst)
-                if trans.v != anno.v:
-                    return False, subst
-                else:
-                    return True, subst
+        if infered.v in subst.keys():
+            trans = infered.apply(subst)
+            if trans.v != anno.v:
+                return False, subst
             else:
-                subst[infered.v] = anno
                 return True, subst
+        else:
+            subst[infered.v] = anno
+            return True, subst
 
     if isinstance(infered, TConst) and isinstance(anno, TConst):
         if infered.name != anno.name:
