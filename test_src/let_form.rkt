@@ -1,0 +1,1 @@
+(lambda (x) (let ([y (+ x 2)] [z (* x x)]) (- z y)))

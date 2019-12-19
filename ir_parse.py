@@ -56,17 +56,20 @@ def parse_let(r_expr: RList) -> (IRExpr, [str]):
     if len(r_expr.v) != 3:
         errors.append("wrong arity of let form")
         return let, errors
-    r_env = r_expr.v[1]
+    r_envs = r_expr.v[1]
     r_body = r_expr.v[2]
 
-    if not isinstance(r_env, RList):
+    envs = []
+    if not isinstance(r_envs, RList):
         errors.append("error in let env, form is not a list")
     else:
-        if len(r_env.v) != 2:
-            errors.append("wrong arity in let env")
-            v = None
-            d = None
-        else:
+        for r_env in r_envs.v:
+            if not isinstance(r_env, RList):
+                errors.append('env pair must be a list')
+                return let, errors
+            if len(r_env.v) != 2:
+                errors.append('env pair must be pair')
+                continue
             r_v = r_env.v[0]
             r_d = r_env.v[1]
             if not isinstance(r_v, RSymbol):
@@ -77,9 +80,10 @@ def parse_let(r_expr: RList) -> (IRExpr, [str]):
 
             d, d_error = parse_ir_expr(r_d)
             errors.extend(d_error)
-        body, body_error = parse_ir_expr(r_body)
-        errors.extend(body_error)
-        let = IRLet(v, d, body)
+            envs.append((v, d))
+        body, body_errors = parse_ir_expr(r_body)
+        errors.extend(body_errors)
+        let = IRLet(envs, body)
 
     return let, errors
 

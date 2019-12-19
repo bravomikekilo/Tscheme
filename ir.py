@@ -71,32 +71,35 @@ class IRApply(IRExpr):
 
 class IRLet(IRExpr):
 
-    def __init__(self, sym: IRVar, d: IRExpr, e: IRExpr):
+    def __init__(self, envs: [(IRVar, IRExpr)], body: IRExpr):
         super(IRLet, self).__init__()
-        self.sym = sym
-        self.d = d
-        self.e = e
+        self.envs = envs
+        self.body = body
 
     def to_raw(self) -> RExpr:
+        envs = [RList([sym.to_raw(), d.to_raw()]) for sym, d in self.envs]
         return RList([
             RSymbol("let"),
-            RList([RList([self.sym.to_raw(), self.d.to_raw()])]),
-            self.e.to_raw()
+            RList(envs),
+            self.body.to_raw()
         ])
 
     def to_racket(self) -> RExpr:
+        envs = [RList([sym.to_racket(), d.to_racket()], sq=True) for sym, d in self.envs]
         return RList([
             RSymbol("let"),
-            RList([RList([self.sym.to_racket(), self.d.to_racket()])]),
-            self.e.to_raw()
+            RList(envs),
+            self.body.to_racket()
         ])
 
     def print(self, indent=0) -> [str]:
-        headline = indent * ' ' + 'let {} ='.format(self.sym.v)
+        headline = indent * ' ' + 'let'
         ret = [headline]
-        ret.extend(self.d.print(indent + 2))
+        for (sym, d) in self.envs:
+            ret.append(indent * ' ' + sym.v + ' =')
+            ret.extend(d.print(indent=indent + 2))
         ret.append(indent * ' ' + 'in')
-        ret.extend(self.e.print(indent + 2))
+        ret.extend(self.body.print(indent + 2))
         return ret
 
 

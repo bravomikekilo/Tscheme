@@ -263,14 +263,15 @@ class InferSys(object):
             return ret_type
 
         if isinstance(ir_expr, IRLet):
-            v = ir_expr.sym
-            d = ir_expr.d
-            body = ir_expr.e
-            d_type = self.infer_ir_expr(env, d)
-            subst = unifies(self.equations)
-            d_type = d_type.apply(subst)
-            new_env = env.add(v, d_type.gen(env.ftv()))
-
+            new_vars = []
+            for (v, d) in ir_expr.envs:
+                d_type = self.infer_ir_expr(env, d)
+                subst = unifies(self.equations)
+                d_type = d_type.apply(subst)
+                # new_env = env.add(v, d_type.gen(env.ftv()))
+                new_vars.append((v, d_type.gen(env.ftv())))
+            new_env = env.extend(new_vars)
+            body = ir_expr.body
             return self.infer_ir_expr(new_env, body)
 
         if isinstance(ir_expr, IRLambda):
