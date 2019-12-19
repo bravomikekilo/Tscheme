@@ -43,6 +43,7 @@ class Formatter(object):
             self.curr_line_width = 0
             indent = self.stack[-1] + self.indent_width
             self.curr_line.append(' ' * indent)
+            self.curr_line_width = indent
 
         if token == "'(" or \
                 token == '(' or \
@@ -60,9 +61,37 @@ class Formatter(object):
         return '\n'.join(self.lines)
 
 
+class Pos(object):
+
+    def __init__(self, ln: int, col: int):
+        self.ln = ln
+        self.col = col
+
+    def __str__(self):
+        return 'ln:{} col:{}'.format(self.ln, self.col)
+
+    def __repr__(self):
+        return '(ln: {} col: {})'.format(self.ln, self.col)
+
+
+class Range(object):
+
+    def __init__(self, start: Pos, end: Pos):
+        super(Range, self).__init__()
+        self.start = start
+        self.end = end
+
+    def __repr__(self):
+        return '[{} -> {}]'.format(repr(self.start), repr(self.end))
+
+    def __str__(self):
+        return '({} -> {})'.format(self.start, self.end)
+
+
 class RExpr(object):
-    def __init__(self):
+    def __init__(self, range: Range):
         super(RExpr, self).__init__()
+        self.range = range
 
     def to_stream(self, stream: Formatter):
         return stream.add_token(str(self))
@@ -74,8 +103,8 @@ class RExpr(object):
 
 
 class RSymbol(RExpr):
-    def __init__(self, v: str):
-        super(RSymbol, self).__init__()
+    def __init__(self, v: str, range=None):
+        super(RSymbol, self).__init__(range=range)
         self.v = v
 
     def __str__(self):
@@ -90,8 +119,8 @@ class RSymbol(RExpr):
 
 class RString(RExpr):
 
-    def __init__(self, v: str):
-        super(RString, self).__init__()
+    def __init__(self, v: str, range=None):
+        super(RString, self).__init__(range=range)
         self.v = v
 
     def __str__(self):
@@ -103,8 +132,8 @@ class RString(RExpr):
 
 class RFloat(RExpr):
 
-    def __init__(self, v: float):
-        super(RFloat, self).__init__()
+    def __init__(self, v: float, range=None):
+        super(RFloat, self).__init__(range=range)
         self.v = v
 
     def __str__(self):
@@ -116,8 +145,8 @@ class RFloat(RExpr):
 
 class RInt(RExpr):
 
-    def __init__(self, v: int):
-        super(RInt, self).__init__()
+    def __init__(self, v: int, range=None):
+        super(RInt, self).__init__(range=range)
         self.v = v
 
     def __str__(self):
@@ -129,8 +158,8 @@ class RInt(RExpr):
 
 class RBool(RExpr):
 
-    def __init__(self, v: bool):
-        super(RBool, self).__init__()
+    def __init__(self, v: bool, range=None):
+        super(RBool, self).__init__(range=range)
         self.v = v
 
     def __str__(self):
@@ -145,8 +174,8 @@ class RBool(RExpr):
 
 class RList(RExpr):
 
-    def __init__(self, v: [RExpr], sq=False):
-        super(RList, self).__init__()
+    def __init__(self, v: [RExpr], sq=False, range=None):
+        super(RList, self).__init__(range=range)
         self.v = v
         self.sq = sq
 

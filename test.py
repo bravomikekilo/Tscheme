@@ -29,7 +29,7 @@ ops = {
     'rand': Schema.none(TArr.func(TYPE_UNIT, number)),
     'cons': Schema.none(TArr.func(t3, listof(t3), listof(t3))),
     'Cons': Schema(TArr.func(t1, listof(t1), listof(t1)), [t1]),
-    'Null': Schema(listof(t2), [t2]),
+    'Nil': Schema(listof(t2), [t2]),
     'null': Schema(listof(t4), [t4]),
 }
 

@@ -95,7 +95,7 @@ class IRCtorPat(IRPat):
         ctor_name = self.ctor.v
         if ctor_name == 'Cons':
             ret = [RSymbol('cons')]
-        elif ctor_name == 'Null':
+        elif ctor_name == 'Nil':
             return quote(RList([]))
         else:
             ret = [RSymbol('list'), quote(RSymbol(ctor_name))]

@@ -6,7 +6,7 @@ from typing import Optional
 def gen_ctor_define(ctor_name: str, ctor_type: Type) -> Optional[RList]:
     if ctor_name == 'Cons':
         return None
-    if ctor_name == 'Null':
+    if ctor_name == 'Nil':
         return None
 
     arity = ctor_type.arity() - 1

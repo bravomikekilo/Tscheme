@@ -5,7 +5,7 @@ from code_gen import gen_ctor_define
 
 
 def main():
-    parser = ArgumentParser(description='script used to check typed-scheme type')
+    parser = ArgumentParser(description='script used to compile typed scheme to racket')
     parser.add_argument('script', help='path to script')
     parser.add_argument('--output', help='path to output file', default='out.rkt')
     parser.add_argument('--silent', action='store_true', help='slient success output')
