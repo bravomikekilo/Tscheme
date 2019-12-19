@@ -74,10 +74,10 @@ class Pos(object):
         return '(ln: {} col: {})'.format(self.ln, self.col)
 
 
-class Range(object):
+class Span(object):
 
     def __init__(self, start: Pos, end: Pos):
-        super(Range, self).__init__()
+        super(Span, self).__init__()
         self.start = start
         self.end = end
 
@@ -89,9 +89,9 @@ class Range(object):
 
 
 class RExpr(object):
-    def __init__(self, range: Range):
+    def __init__(self, span: Span):
         super(RExpr, self).__init__()
-        self.range = range
+        self.span = span
 
     def to_stream(self, stream: Formatter):
         return stream.add_token(str(self))
@@ -103,8 +103,8 @@ class RExpr(object):
 
 
 class RSymbol(RExpr):
-    def __init__(self, v: str, range=None):
-        super(RSymbol, self).__init__(range=range)
+    def __init__(self, v: str, span=None):
+        super(RSymbol, self).__init__(span=span)
         self.v = v
 
     def __str__(self):
@@ -119,8 +119,8 @@ class RSymbol(RExpr):
 
 class RString(RExpr):
 
-    def __init__(self, v: str, range=None):
-        super(RString, self).__init__(range=range)
+    def __init__(self, v: str, span=None):
+        super(RString, self).__init__(span=span)
         self.v = v
 
     def __str__(self):
@@ -132,8 +132,8 @@ class RString(RExpr):
 
 class RFloat(RExpr):
 
-    def __init__(self, v: float, range=None):
-        super(RFloat, self).__init__(range=range)
+    def __init__(self, v: float, span=None):
+        super(RFloat, self).__init__(span=span)
         self.v = v
 
     def __str__(self):
@@ -145,8 +145,8 @@ class RFloat(RExpr):
 
 class RInt(RExpr):
 
-    def __init__(self, v: int, range=None):
-        super(RInt, self).__init__(range=range)
+    def __init__(self, v: int, span=None):
+        super(RInt, self).__init__(span=span)
         self.v = v
 
     def __str__(self):
@@ -158,8 +158,8 @@ class RInt(RExpr):
 
 class RBool(RExpr):
 
-    def __init__(self, v: bool, range=None):
-        super(RBool, self).__init__(range=range)
+    def __init__(self, v: bool, span=None):
+        super(RBool, self).__init__(span=span)
         self.v = v
 
     def __str__(self):
@@ -174,8 +174,8 @@ class RBool(RExpr):
 
 class RList(RExpr):
 
-    def __init__(self, v: [RExpr], sq=False, range=None):
-        super(RList, self).__init__(range=range)
+    def __init__(self, v: [RExpr], sq=False, span=None):
+        super(RList, self).__init__(span=span)
         self.v = v
         self.sq = sq
 

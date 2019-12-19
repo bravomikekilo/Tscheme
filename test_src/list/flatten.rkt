@@ -9,6 +9,9 @@
         (foldr (lambda (l r) (concat l r))
                null x))
 
+(define (length x) (foldr (lambda (l r) (+ r 1)) 0 x))
+
 (define nest '((1 2 3) (2 3) (1)))
 
-(print (flatten nest))
+(println (flatten nest))
+(println (length (flatten nest)))

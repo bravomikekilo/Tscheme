@@ -11,7 +11,7 @@ def to_pos(pos: (int, int)):
 def to_range(start: (int, int), end: (int, int)):
     start_pos = to_pos(start)
     end_pos = to_pos(end)
-    return Range(start_pos, end_pos)
+    return Span(start_pos, end_pos)
 
 
 def map_number(s):
@@ -50,7 +50,7 @@ def slist():
     else:
         yield regex(r'\s*') >> parsy.string(']')
     end_pos = yield parsy.line_info
-    return RList(atoms, sq=forward == '[', range=to_range(start_pos, end_pos))
+    return RList(atoms, sq=forward == '[', span=to_range(start_pos, end_pos))
 
 
 @generate
@@ -64,11 +64,11 @@ def symbol():
 
     ran = to_range(start_pos, end_pos)
     if raw == '#t':
-        return RBool(True, range=ran)
+        return RBool(True, span=ran)
     elif raw == '#f':
-        return RBool(False, range=ran)
+        return RBool(False, span=ran)
     else:
-        return RSymbol(raw, range=ran)
+        return RSymbol(raw, span=ran)
 
 
 @generate
@@ -76,7 +76,7 @@ def string():
     start_pos = yield parsy.line_info
     ret = yield regex(r'''"[^"]*"''').map(lambda x: RString(x[1:-1]))
     end_pos = yield parsy.line_info
-    return RString(ret, range=to_range(start_pos, end_pos))
+    return RString(ret, span=to_range(start_pos, end_pos))
 
 
 @generate
@@ -88,7 +88,7 @@ def atom():
 
     ran = to_range(start_pos, end_pos)
     if quote is not None:
-        return RList([RSymbol('quote'), ret], range=ran)
+        return RList([RSymbol('quote'), ret], span=ran)
     else:
         ret.range = ran
         return ret

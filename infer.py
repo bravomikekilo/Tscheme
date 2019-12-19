@@ -136,6 +136,10 @@ class TypeEnv(object):
         t3 = TVar('t3')
         t4 = TVar('t4')
         t5 = TVar('t5')
+        t6 = TVar('t6')
+        t7 = TVar('t7')
+        t8 = TVar('t8')
+        t9 = TVar('t9')
 
         def listof(t_var: TVar):
             return Defined("List", [t_var])
@@ -148,12 +152,18 @@ class TypeEnv(object):
             '=': Schema.none(TArr.func(number, number, bool)),
             '>': Schema.none(TArr.func(number, number, bool)),
             '<': Schema.none(TArr.func(number, number, bool)),
+            'and': Schema.none(TArr.func(bool, bool, bool)),
+            'or': Schema.none(TArr.func(bool, bool, bool)),
+            'not': Schema.none(TArr.func(bool, bool)),
             'rand': Schema.none(TArr.func(TYPE_UNIT, number)),
             'cons': Schema.none(TArr.func(t3, listof(t3), listof(t3))),
+            'car': Schema(TArr.func(listof(t7), t7), [t7]),
+            'cdr': Schema(TArr.func(listof(t7), listof(t7)), [t7]),
             'Cons': Schema(TArr.func(t1, listof(t1), listof(t1)), [t1]),
             'Nil': Schema(listof(t2), [t2]),
             'null': Schema(listof(t4), [t4]),
             'print': Schema(TArr.func(t5, TYPE_UNIT), [t5]),
+            'println': Schema(TArr.func(t6, TYPE_UNIT), [t6]),
         }
 
         return TypeEnv(ops)
@@ -171,11 +181,12 @@ class TypeEnv(object):
 
 class InferSys(object):
 
-    def __init__(self):
+    def __init__(self, verbose=False):
         super(InferSys, self).__init__()
         self.count = 0
         self.equations = []
         self.env = TypeEnv.empty()
+        self.verbose = verbose
 
     def new_type_var(self):
         count = self.count
@@ -204,7 +215,8 @@ class InferSys(object):
         return t.gen(ps)
 
     def add_equation(self, left: Type, right: Type):
-        print('add equation {} = {}'.format(left, right))
+        if self.verbose:
+            print('add equation {} = {}'.format(left, right))
         self.equations.append((left, right))
 
     def add_equations(self, types: [Type]):

@@ -6,6 +6,20 @@ from typing import Mapping, Optional
 from collections import OrderedDict
 
 
+class ParseError(object):
+
+    def __init__(self, span: Span, msg: str):
+        super(ParseError, self).__init__()
+        self.span = span
+        self.msg = msg
+
+    def __str__(self):
+        return 'in {}: {}'.format(self.span, self.msg)
+
+    def __repr__(self):
+        return 'ParseError({}: {})'.format(self.span, self.msg)
+
+
 def parse_lit(expr: RExpr) -> IRLit:
     if isinstance(expr, RSymbol):
         return IRSymbol(expr.v)
@@ -24,17 +38,17 @@ def parse_lit(expr: RExpr) -> IRLit:
         raise ValueError('expr {} is not a literal'.format(expr))
 
 
-def parse_lambda(r_expr: RList) -> (IRExpr, [str]):
+def parse_lambda(r_expr: RList) -> (IRExpr, [ParseError]):
     errors = []
     lam = None
     if len(r_expr.v) != 3:
-        errors.append("wrong arity of lambda form")
+        errors.append(ParseError(r_expr.span, "wrong arity of lambda form"))
         return None, errors
     args = r_expr.v[1]
     body = r_expr.v[2]
 
     if not isinstance(args, RList):
-        errors.append("wrong form of lambda parameters")
+        errors.append(ParseError(args.span, "wrong form of lambda parameters"))
         return None, errors
     else:
         vars = []
@@ -42,7 +56,7 @@ def parse_lambda(r_expr: RList) -> (IRExpr, [str]):
             if isinstance(arg, RSymbol):
                 vars.append(IRVar(arg.v))
             else:
-                errors.append("error in lambda parameters, form is not a symbol")
+                errors.append(ParseError(arg.span, "error in lambda parameters, form is not a symbol"))
         ret, ret_errors = parse_ir_expr(body)
         errors.extend(ret_errors)
         lam = IRLambda(vars, ret)
@@ -50,30 +64,30 @@ def parse_lambda(r_expr: RList) -> (IRExpr, [str]):
     return lam, errors
 
 
-def parse_let(r_expr: RList) -> (IRExpr, [str]):
+def parse_let(r_expr: RList) -> (IRExpr, [ParseError]):
     errors = []
     let = None
     if len(r_expr.v) != 3:
-        errors.append("wrong arity of let form")
+        errors.append(ParseError(r_expr.span, "wrong arity of let form"))
         return let, errors
     r_envs = r_expr.v[1]
     r_body = r_expr.v[2]
 
     envs = []
     if not isinstance(r_envs, RList):
-        errors.append("error in let env, form is not a list")
+        errors.append(ParseError(r_envs.span, "error in let env, form is not a list"))
     else:
         for r_env in r_envs.v:
             if not isinstance(r_env, RList):
-                errors.append('env pair must be a list')
+                errors.append(ParseError(r_env.span, 'env pair must be a list'))
                 return let, errors
             if len(r_env.v) != 2:
-                errors.append('env pair must be pair')
+                errors.append(ParseError(r_env.span, 'env pair must be pair'))
                 continue
             r_v = r_env.v[0]
             r_d = r_env.v[1]
             if not isinstance(r_v, RSymbol):
-                errors.append("binding must on a symbol")
+                errors.append(ParseError(r_v.span, "binding must on a symbol"))
                 v = None
             else:
                 v = IRVar(r_v.v)
@@ -88,11 +102,11 @@ def parse_let(r_expr: RList) -> (IRExpr, [str]):
     return let, errors
 
 
-def parse_if(r_expr: RList) -> (IRExpr, [str]):
+def parse_if(r_expr: RList) -> (IRExpr, [ParseError]):
     errors = []
     iff = None
     if len(r_expr.v) != 4:
-        errors.append("wrong arity in if form")
+        errors.append(ParseError(r_expr.span, "wrong arity in if form"))
         return iff, errors
     r_cond = r_expr.v[1]
     r_then = r_expr.v[2]
@@ -112,12 +126,12 @@ def parse_if(r_expr: RList) -> (IRExpr, [str]):
     return iff, errors
 
 
-def parse_cond_arm(r_expr: RList) -> ((IRExpr, IRExpr), [str]):
+def parse_cond_arm(r_expr: RList) -> ((IRExpr, IRExpr), [ParseError]):
     errors = []
     cond = None
     arm = None
     if len(r_expr.v) != 2:
-        errors.append("wrong arity in cond arm")
+        errors.append(ParseError(r_expr.span, "wrong arity in cond arm"))
         return (cond, arm), errors
     cond, cond_errors = parse_ir_expr(r_expr.v[0])
     errors.extend(cond_errors)
@@ -128,11 +142,11 @@ def parse_cond_arm(r_expr: RList) -> ((IRExpr, IRExpr), [str]):
     return (cond, arm), errors
 
 
-def parse_cond(r_expr: RList) -> (IRExpr, [str]):
+def parse_cond(r_expr: RList) -> (IRExpr, [ParseError]):
     errors = []
     cond = None
     if len(r_expr.v) < 2:
-        errors.append("wrong arity in cond form")
+        errors.append(ParseError(r_expr.span, "wrong arity in cond form"))
         return cond, errors
     r_conds = r_expr.v[1:]
 
@@ -143,18 +157,18 @@ def parse_cond(r_expr: RList) -> (IRExpr, [str]):
             errors.extend(cond_errors)
             conds.append((cond, arm))
         else:
-            errors.append("cond arm must be a list")
+            errors.append(ParseError(r_cond.span, "cond arm must be a list"))
     cond = IRCond(conds)
 
     return cond, errors
 
 
-def parse_apply(r_expr: RList) -> (IRExpr, [str]):
+def parse_apply(r_expr: RList) -> (IRExpr, [ParseError]):
     errors = []
     expr = None
 
     if len(r_expr.v) == 0:
-        errors.append("empty application on top level, error")
+        errors.append(ParseError(r_expr.span, "empty application on top level, error"))
         return None, errors
     r_head = r_expr.v[0]
 
@@ -171,13 +185,13 @@ def parse_apply(r_expr: RList) -> (IRExpr, [str]):
     return expr, errors
 
 
-def parse_pat(r_expr: RExpr) -> (IRPat, [str]):
+def parse_pat(r_expr: RExpr) -> (IRPat, [ParseError]):
     errors = []
     pat = None
 
     if isinstance(r_expr, RList):
         if len(r_expr.v) == 0:
-            errors.append("pattern can't be empty")
+            errors.append(ParseError(r_expr.span, "pattern can't be empty"))
             return pat, errors
 
         head = r_expr.v[0]
@@ -185,7 +199,7 @@ def parse_pat(r_expr: RExpr) -> (IRPat, [str]):
             sym = head.v
             if sym == 'quote':
                 if len(r_expr.v) != 2:
-                    errors.append("wrong arity in quote")
+                    errors.append(ParseError(r_expr.span, "wrong arity in quote"))
                     return pat, errors
                 lit, errors = parse_lit(r_expr.v[1])
                 pat = IRLitPat(lit)
@@ -222,7 +236,7 @@ def parse_pat(r_expr: RExpr) -> (IRPat, [str]):
             return pat, errors
 
         else:
-            errors.append("pattern head should be a symbol")
+            errors.append(ParseError(head.span, "pattern head should be a symbol"))
             return pat, errors
     else:
         lit = parse_lit(r_expr)
@@ -235,12 +249,12 @@ def parse_pat(r_expr: RExpr) -> (IRPat, [str]):
     return pat, errors
 
 
-def parse_match(r_expr: RList) -> (IRExpr, [str]):
+def parse_match(r_expr: RList) -> (IRExpr, [ParseError]):
     errors = []
     match = None
 
     if len(r_expr.v) < 3:
-        errors.append("match form must have matched expression and at least one match arm")
+        errors.append(ParseError(r_expr.span, "match form must have matched expression and at least one match arm"))
         return match, errors
     v, v_errors = parse_ir_expr(r_expr.v[1])
     errors.extend(v_errors)
@@ -248,7 +262,7 @@ def parse_match(r_expr: RList) -> (IRExpr, [str]):
     for r_branch in r_expr.v[2:]:
         if isinstance(r_branch, RList):
             if len(r_branch.v) != 2:
-                errors.append("wrong arity in match arm")
+                errors.append(ParseError(r_branch.span, "wrong arity in match arm"))
                 continue
             r_pat = r_branch.v[0]
             r_arm = r_branch.v[1]
@@ -256,13 +270,13 @@ def parse_match(r_expr: RList) -> (IRExpr, [str]):
             arm, atm_errors = parse_ir_expr(r_arm)
             arms.append((pat, arm))
         else:
-            errors.append("match arm must be a list")
+            errors.append(ParseError(r_branch.span, "match arm must be a list"))
             continue
     pat = IRMatch(v, arms)
     return pat, errors
 
 
-def parse_list_form(r_expr: RList) -> (IRExpr, [str]):
+def parse_list_form(r_expr: RList) -> (IRExpr, [ParseError]):
     errors = []
 
     r_args = r_expr.v[1:]
@@ -275,7 +289,7 @@ def parse_list_form(r_expr: RList) -> (IRExpr, [str]):
     return IRListCtor(args), errors
 
 
-def parse_tuple_form(r_expr: RList) -> (IRExpr, [str]):
+def parse_tuple_form(r_expr: RList) -> (IRExpr, [ParseError]):
     errors = []
 
     r_args = r_expr.v[1:]
@@ -288,17 +302,17 @@ def parse_tuple_form(r_expr: RList) -> (IRExpr, [str]):
     return IRTupleCtor(args), errors
 
 
-def parse_set(r_expr: RList) -> (IRExpr, [str]):
+def parse_set(r_expr: RList) -> (IRExpr, [ParseError]):
     errors = []
     form = None
     if len(r_expr.v) != 3:
-        errors.append("wrong arity in set! form")
+        errors.append(ParseError(r_expr.span, "wrong arity in set! form"))
         return form, errors
     r_sym = r_expr.v[1]
     r_v = r_expr.v[2]
 
     if not isinstance(r_sym, RSymbol):
-        errors.append("must set! on a symbol")
+        errors.append(ParseError(r_sym.span, "must set! on a symbol"))
         return form, errors
     sym = IRVar(r_sym.v)
     v, v_errors = parse_ir_expr(r_v)
@@ -307,11 +321,11 @@ def parse_set(r_expr: RList) -> (IRExpr, [str]):
     return form, errors
 
 
-def parse_begin(r_expr: RList) -> (IRExpr, [str]):
+def parse_begin(r_expr: RList) -> (IRExpr, [ParseError]):
     errors = []
 
     if len(r_expr.v) == 1:
-        errors.append('there must be at least one form in begin')
+        errors.append(ParseError(r_expr.span, 'there must be at least one form in begin'))
         return None, errors
 
     r_args = r_expr.v[1:]
@@ -324,12 +338,12 @@ def parse_begin(r_expr: RList) -> (IRExpr, [str]):
     return IRBegin(args), errors
 
 
-def parse_ir_expr(r_expr) -> (IRExpr, [str]):
+def parse_ir_expr(r_expr) -> (IRExpr, [ParseError]):
     errors = []
     expr = None
     if isinstance(r_expr, RList):
         if len(r_expr.v) == 0:
-            errors.append("empty application on top level, error")
+            errors.append(ParseError(r_expr.span, "empty application on top level, error"))
             return expr, errors
         r_head = r_expr.v[0]
         if isinstance(r_head, RSymbol):
@@ -342,7 +356,7 @@ def parse_ir_expr(r_expr) -> (IRExpr, [str]):
             if sym == 'quote':
                 # parse a quote
                 if len(r_expr.v) != 2:
-                    errors.append("wrong arity in quote form")
+                    errors.append(ParseError(r_expr.span, "wrong arity in quote form"))
                     return expr, errors
                 else:
                     expr = parse_lit(r_expr.v[1])
@@ -404,11 +418,11 @@ def parse_ir_expr(r_expr) -> (IRExpr, [str]):
     return expr, errors
 
 
-def parse_define(r_expr: RList) -> (IRDefine, [str]):
+def parse_define(r_expr: RList) -> (IRDefine, [ParseError]):
     define = None
     errors = []
     if len(r_expr.v) > 4 or len(r_expr.v) < 3:
-        errors.append("wrong arity of define form")
+        errors.append(ParseError(r_expr.span, "wrong arity of define form"))
         return None, errors
 
     args = r_expr.v[1]
@@ -428,7 +442,7 @@ def parse_define(r_expr: RList) -> (IRDefine, [str]):
             errors.extend(body_errors)
             return IRVarDefine(sym, body, ret_type), errors
         else:
-            errors.append("wrong form of define parameters")
+            errors.append(ParseError(args.span, "wrong form of define parameters"))
             return None, errors
     else:
         vars = []
@@ -437,22 +451,23 @@ def parse_define(r_expr: RList) -> (IRDefine, [str]):
         for arg in args.v:
             if isinstance(arg, RSymbol):
                 if arg.v in var_names:
-                    errors.append("duplicate argument name {}".format(arg.v))
+                    errors.append(ParseError(arg.span, "duplicate argument name {}".format(arg.v)))
                 vars.append(IRVar(arg.v))
                 var_names.add(arg.v)
                 arg_types.append(None)
             elif isinstance(arg, RList) and len(arg.v) == 2 and isinstance(arg.v[0], RSymbol):
                 # parse argument with type annotation
-                sym = arg.v[0]
+                sym = arg.v[0].v
                 r_anno = arg.v[1]
                 anno, anno_errors = parse_type_decl(None, r_anno)
                 errors.extend(anno_errors)
                 arg_types.append(anno)
                 if sym in var_names:
-                    errors.append("duplicate argument name {}".format(arg.v))
+                    errors.append(ParseError(arg.v[0].span, "duplicate argument name {}".format(sym)))
                 vars.append(IRVar(sym))
             else:
-                errors.append("error in lambda parameters, form is not a symbol or symbol with annotation")
+                errors.append(ParseError(arg.span,
+                                         "error in lambda parameters, form is not a symbol or symbol with annotation"))
         arg_types.append(ret_type)
         if all((anno_type is None for anno_type in arg_types)):
             anno_type = None
@@ -465,7 +480,7 @@ def parse_define(r_expr: RList) -> (IRDefine, [str]):
     return define, errors
 
 
-def parse_type_decl(env: (Set[str], Mapping[str, int]), r_expr: RExpr) -> (Type, [str]):
+def parse_type_decl(env: (Set[str], Mapping[str, int]), r_expr: RExpr) -> (Type, [ParseError]):
     if env is None:
         bounded_tvar = None
         defined = None
@@ -489,12 +504,12 @@ def parse_type_decl(env: (Set[str], Mapping[str, int]), r_expr: RExpr) -> (Type,
             ret_type = Defined(sym, [])
         else:
             if bounded_tvar is not None and sym not in bounded_tvar:
-                errors.append("unbounded type variable {}".format(sym))
+                errors.append(ParseError(r_expr.span, "unbounded type variable {}".format(sym)))
             ret_type = TVar(sym)
         return ret_type, errors
     elif isinstance(r_expr, RList):
         if len(r_expr.v) == 0 or not isinstance(r_expr.v[0], RSymbol):
-            errors.append('type must have name')
+            errors.append(ParseError(r_expr.span, 'type must have name'))
         type_name = r_expr.v[0].v
         subs = []
         for sub in r_expr.v[1:]:
@@ -503,7 +518,7 @@ def parse_type_decl(env: (Set[str], Mapping[str, int]), r_expr: RExpr) -> (Type,
             subs.append(sub_t)
         if defined is not None and type_name in defined:
             if len(subs) != defined[type_name]:
-                errors.append("wrong arity in type apply")
+                errors.append(ParseError(r_expr.span, "wrong arity in type apply"))
             return Defined(type_name, subs), errors
         elif type_name == '*':
             # parse a tuple type
@@ -514,7 +529,7 @@ def parse_type_decl(env: (Set[str], Mapping[str, int]), r_expr: RExpr) -> (Type,
         elif type_name == '->':
             # parse a function type
             if len(subs) == 0:
-                errors.append("empty function type")
+                errors.append(ParseError(r_expr.span, "empty function type"))
                 return ret_type, errors
             else:
                 ret_type = subs[-1]
@@ -525,16 +540,16 @@ def parse_type_decl(env: (Set[str], Mapping[str, int]), r_expr: RExpr) -> (Type,
                 return ret_type, errors
         else:
             print("unknown defined type {}".format(type_name))
-            errors.append("unknown defined type {}".format(type_name))
+            errors.append(ParseError(r_expr.span, "unknown defined type {}".format(type_name)))
 
     else:
-        errors.append("type must be a symbol or a list")
+        errors.append(ParseError(r_expr.span, "type must be a symbol or a list"))
     return ret_type, errors
 
 
 def parse_define_ctors(defined: Type,
                        type_arity: Mapping[str, int],
-                       r_expr: RList) -> ([(str, Type)], [str]):
+                       r_expr: RList) -> ([(str, Type)], [ParseError]):
     errors = []
     ctors = []
 
@@ -542,10 +557,10 @@ def parse_define_ctors(defined: Type,
     env = (ftv, type_arity)
     for r_ctor in r_expr.v[2:]:
         if not isinstance(r_ctor, RList) and len(r_ctor.v) > 0:
-            errors.append("wrong form of data constructor")
+            errors.append(ParseError(r_ctor.span, "wrong form of data constructor"))
             continue
         if not isinstance(r_ctor.v[0], RSymbol):
-            errors.append("data constructor name must be symbol")
+            errors.append(ParseError(r_ctor.v[0].span, "data constructor name must be symbol"))
             continue
         ctor_name = r_ctor.v[0].v
         r_args = r_ctor.v[1:]
@@ -563,11 +578,11 @@ def parse_define_ctors(defined: Type,
     return ctors, errors
 
 
-def parse_define_sum(r_expr: RList) -> (Defined, [str]):
+def parse_define_sum(r_expr: RList) -> (Defined, [ParseError]):
     errors = []
     ret_type = None
     if len(r_expr.v) < 3:
-        errors.append("wrong arity in define-sum")
+        errors.append(ParseError(r_expr.span, "wrong arity in define-sum"))
         return ret_type, errors
 
     # parse The Type
@@ -575,33 +590,33 @@ def parse_define_sum(r_expr: RList) -> (Defined, [str]):
 
     if isinstance(r_ret_type, RSymbol):
         if not str.isupper(r_ret_type.v[0]):
-            errors.append("Type name must start with Capital letter")
+            errors.append(ParseError(r_ret_type.span, "Type name must start with Capital letter"))
         ret_type = Defined(r_ret_type.v, [])
     elif isinstance(r_ret_type, RList):
         if len(r_ret_type.v) == 0:
-            errors.append("type can't be a empty list")
+            errors.append(ParseError(r_ret_type.span, "type can't be a empty list"))
         all_is_sym = all((isinstance(t, RSymbol) for t in r_ret_type.v))
         if not all_is_sym:
-            errors.append("type must be list of symbol")
+            errors.append(ParseError(r_ret_type.span, "type must be list of symbol"))
         else:
             type_name = r_ret_type.v[0].v
             if not str.isupper(type_name[0]):
-                errors.append("Type name must start with Capital letter")
+                errors.append(ParseError(r_ret_type.v[0].span, "Type name must start with Capital letter"))
             t_vars = []
             bound_vars = set()
             for sym in r_ret_type.v[1:]:
                 if not str.islower(sym.v[0]):
-                    errors.append('TVar must start with lower letter')
+                    errors.append(ParseError(sym.span, 'TVar must start with lower letter'))
                     continue
                 else:
                     if sym.v in bound_vars:
-                        errors.append('duplicate type variable {}'.format(sym.v))
+                        errors.append(ParseError(sym.span, 'duplicate type variable {}'.format(sym.v)))
                         continue
                     t_vars.append(TVar(sym.v))
             ret_type = Defined(type_name, t_vars)
 
     else:
-        errors.append("type must be a symbol or a list")
+        errors.append(ParseError(r_ret_type.span, "type must be a symbol or a list"))
 
     return ret_type, errors
 
@@ -626,7 +641,8 @@ def extract_and_check_type(r_exprs: [RList]):
         if defined.name not in types:
             types[defined.name] = defined
         else:
-            errors.append("type {} has been defined".format(defined.name))
+            msg = "type {} has been defined".format(defined.name)
+            errors.append(ParseError(r_expr.span, msg))
     if len(errors) > 0:
         return types, ctors, errors
 
@@ -646,7 +662,7 @@ def parse_r(r_exprs: [RExpr]) -> ([IRDefine], [IRExpr], [str]):
     for expr in r_exprs:
         if isinstance(expr, RList):
             if len(expr.v) == 0:
-                errors.append("empty application on top level, error")
+                errors.append(ParseError(expr.span, "empty application on top level, error"))
                 continue
             head = expr.v[0]
             if isinstance(head, RSymbol):
