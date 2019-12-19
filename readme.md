@@ -51,10 +51,56 @@ compiler.py 默认输出的路径是out.rkt
     racket -i out.rkt
 ```
 
+典型的编译输出
+```lisp
+#lang racket
+
+(define (foldr f x0 l)
+  (match l [(cons x xs)
+             (f x (foldr f x0 xs))]
+    ['() 
+      x0]))
+(define (concat x y)
+  (foldr cons y x))
+(define (flatten x)
+  (foldr (lambda (l r)
+           (concat l r))
+    null x))
+(define (length x)
+  (foldr (lambda (l r)
+           (+ r 1))
+    0 x))
+(define nest '((1 2 3)
+                (2 3)
+                (1)))
+(println (flatten nest))
+(println (length (flatten nest)))
+
+```
+
 ### 项目的实现功能
 项目实现了基本的Hindley-Milner类型系统和类型检查功能
 实现的基本类型有 Unit类型(C语言中的void), Number类型, Bool类型， String类型， Symbol类型
-实现的其他类型有 函数类型, 和类型, 元组类型
+
+实现的其他类型有
+
+- 函数类型
+- 和类型
+- 元组类型
+
 在和类型的基础上,我们对scheme中的list进行了建模, 提供了 List类型
 
-项目实现的语法有: if, cond, apply, let, define, set!, begin, list, tuple
+项目实现的语法有: if, cond, apply, let, define, set!, begin, list, tuple, match
+
+基于我们自己设计的基于类型的match语法,我们实现现代语言中的
+一个重要特性 **模式匹配**
+
+一个常见的patten match
+```lisp
+(define (foldr f x0 l) (match l
+    [(Cons x xs) (f x (foldr f x0 xs))]
+    [(Nil) x0]
+))
+
+
+```

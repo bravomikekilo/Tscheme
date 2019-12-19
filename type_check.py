@@ -90,7 +90,21 @@ class TypeChecker(object):
                             t = infer_sys.solve_ir_define(type_env, define)
                         else:
                             t = infer_sys.solve_var_define(type_env, define)
-                        s = infer_sys.generalize(t)
+
+                        if define.anno is not None:
+                            anno = define.anno
+                            matched, subst = confirm(t, anno)
+                            if not matched:
+                                msg = 'define {} type mismatch, infered {}, but annotation is {}'\
+                                    .format(define.sym.v, t.apply(subst), anno)
+                                print(msg)
+                            else:
+                                msg = 'define {} type fullfilled, infered {}, annotation is {}'\
+                                        .format(define.sym.v, t.apply(subst), anno)
+                                print(msg)
+                            s = infer_sys.generalize(t)
+                        else:
+                            s = infer_sys.generalize(t)
                         if define.anno is not None:
                             match, subst = confirm(t, define.anno)
                             if not match:

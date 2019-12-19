@@ -448,14 +448,15 @@ def parse_define(r_expr: RList) -> (IRDefine, [ParseError]):
         vars = []
         var_names = set()
         arg_types = []
-        for arg in args.v:
+        for i, arg in enumerate(args.v):
             if isinstance(arg, RSymbol):
                 if arg.v in var_names:
                     errors.append(ParseError(arg.span, "duplicate argument name {}".format(arg.v)))
                 vars.append(IRVar(arg.v))
                 var_names.add(arg.v)
-                arg_types.append(None)
-            elif isinstance(arg, RList) and len(arg.v) == 2 and isinstance(arg.v[0], RSymbol):
+                if i != 0:
+                    arg_types.append(None)
+            elif i != 0 and isinstance(arg, RList) and len(arg.v) == 2 and isinstance(arg.v[0], RSymbol):
                 # parse argument with type annotation
                 sym = arg.v[0].v
                 r_anno = arg.v[1]
