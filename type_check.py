@@ -46,7 +46,7 @@ class TypeChecker(object):
 
         return types, ctors, errors
 
-    def check_content(self, r_exprs: [RExpr], verbose=False) ->\
+    def check_content(self, r_exprs: [RExpr], verbose=False) -> \
             (Mapping[str, Type], Mapping[str, Type], [IRTerm], [str]):
         errors = []
         ir_terms = []
@@ -86,8 +86,17 @@ class TypeChecker(object):
                         errors.extend(errs)
                         if len(errs) > 0:
                             continue
-                        t = infer_sys.solve_ir_define(type_env, define)
+                        if isinstance(define, IRDefine):
+                            t = infer_sys.solve_ir_define(type_env, define)
+                        else:
+                            t = infer_sys.solve_var_define(type_env, define)
                         s = infer_sys.generalize(t)
+                        if define.anno is not None:
+                            match, subst = confirm(t, define.anno)
+                            if not match:
+                                errors.append(
+                                    'type mismatch in define {}, annotation is {}, but infered is {}'
+                                        .format(define.sym.v, define.anno, t.apply(subst)))
                         type_env = type_env.add(define.sym, s)
                         if verbose:
                             if s.is_dummy():
@@ -149,7 +158,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-
-

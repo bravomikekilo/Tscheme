@@ -6,7 +6,6 @@ from ir_lit import *
 from ir_pat import *
 from type_sys import *
 
-
 Subst = Mapping[str, Type]
 Constraint = T[Type, Type]
 Unifer = Subst
@@ -330,9 +329,10 @@ class InferSys(object):
                 pat_type, binds = self.infer_ir_pat(env, pat)
                 self.add_equation(v_type, pat_type)
                 if len(binds) > 0:
-                    print('get bindings from pat:', pat)
-                for t_var, t in binds:
-                    print(t_var, '=>', t)
+                    pass
+                    # print('get bindings from pat:', pat)
+                # for t_var, t in binds:
+                    # print(t_var, '=>', t)
                 binds = [(var, Schema.none(t)) for var, t in binds]
                 new_env = env.extend(binds)
                 arm_types.append(self.infer_ir_expr(new_env, arm))
@@ -359,6 +359,8 @@ class InferSys(object):
             else:
                 arg_types = [self.infer_ir_expr(env, arg) for arg in ir_expr.args]
                 return Tuple(arg_types)
+
+        raise ValueError("unknown ir_expr", ir_expr)
 
     def infer_ir_pat(self, env: TypeEnv, pat: IRPat) -> (Type, [(TVar, Type)]):
 
@@ -406,6 +408,16 @@ class InferSys(object):
             self.add_equation(actual_t, ctor_t)
             return ret_t, binds
 
+    def infer_var_define(self, env: TypeEnv, define: IRVarDefine) -> Type:
+        sym = define.sym
+        body = define.body
+        sym_type = self.new_type_var()
+        new_env = env.add(sym, Schema.none(sym_type))
+        body_type = self.infer_ir_expr(new_env, body)
+        # print('var define body type:', body_type)
+        self.add_equation(sym_type, body_type)
+        return sym_type
+
     def infer_ir_define(self, env: TypeEnv, define: IRDefine) -> Type:
         sym = define.sym
         args = define.args
@@ -439,9 +451,73 @@ class InferSys(object):
         subst = self.solve_curr_equation()
         return t.apply(subst)
 
+    def solve_var_define(self, env: TypeEnv, define: IRVarDefine):
+        t = self.infer_var_define(env, define)
+        subst = self.solve_curr_equation()
+        return t.apply(subst)
+
     def solve_curr_equation(self) -> Subst:
         return unifies(self.equations)
 
 
+def confirm(infered: Type, anno: Type, subst=None) -> (bool, Mapping[str, TVar]):
 
+    if subst is None:
+        subst = dict()
 
+    if anno is None:
+        return True, subst
+
+    if isinstance(infered, TVar) and isinstance(anno, TVar):
+        if infered.v == anno.v:
+            return True, dict()
+        else:
+            if infered.v in subst.keys():
+                trans = infered.apply(subst)
+                if trans.v != anno.v:
+                    return False, subst
+                else:
+                    return True, subst
+            else:
+                subst[infered.v] = anno
+                return True, subst
+
+    if isinstance(infered, TConst) and isinstance(anno, TConst):
+        if infered.name != anno.name:
+            return False, dict()
+        else:
+            return True, dict()
+
+    if isinstance(infered, TArr) and isinstance(anno, TArr):
+        if infered.arity() != anno.arity():
+            return False, subst
+        else:
+            infers = infered.flatten()
+            annoes = anno.flatten()
+
+            for infer_t, anno_t in zip(infers, annoes):
+                match, subst = confirm(infer_t, anno_t, subst)
+                if not match:
+                    return False, subst
+            return True, subst
+
+    if isinstance(infered, Defined) and isinstance(anno, Defined):
+        if infered.arity() != anno.arity() or infered.name != anno.name:
+            return False, subst
+        else:
+            for i, t in enumerate(infered.types):
+                match, subst = confirm(t, anno.types[i], subst)
+                if not match:
+                    return False, subst
+            return True, subst
+
+    if isinstance(infered, Tuple) and isinstance(anno, Tuple):
+        if infered.arity() != anno.arity():
+            return False, subst
+        else:
+            for i, t in enumerate(infered.types):
+                match, subst = confirm(t, anno.types[i], subst)
+                if not match:
+                    return False, subst
+
+    return False, subst

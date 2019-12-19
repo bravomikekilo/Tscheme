@@ -1,4 +1,5 @@
 from typing import Set
+from syntax import *
 
 
 class Type(object):
@@ -16,6 +17,12 @@ class Type(object):
 
     def find_defined(self, name: str):
         return []
+
+    def arity(self) -> int:
+        return 1
+
+    def to_raw(self) -> RExpr:
+        raise NotImplementedError()
 
 
 class TVar(Type):
@@ -42,6 +49,9 @@ class TVar(Type):
     def ftv(self):
         return {self.v}
 
+    def to_raw(self) -> RExpr:
+        return RSymbol(self.v)
+
 
 class TConst(Type):
 
@@ -64,6 +74,9 @@ class TConst(Type):
     def ftv(self):
         return set()
 
+    def to_raw(self) -> RExpr:
+        return RSymbol(self.name)
+
 
 TYPE_BOOL = TConst("Bool")
 TYPE_NUMBER = TConst("Number")
@@ -80,15 +93,35 @@ class TArr(Type):
         self.out_type = out_type
 
     def __str__(self):
+        def to_str(t):
+            if t is None:
+                return '_'
+            else:
+                return str(t)
+
+        in_type = to_str(self.in_type)
+        out_type = to_str(self.out_type)
+
         if isinstance(self.in_type, TArr):
-            return '({}) -> {}'.format(str(self.in_type), str(self.out_type))
-        return '{} -> {}'.format(str(self.in_type), str(self.out_type))
+            return '({}) -> {}'.format(in_type, out_type)
+        else:
+            return '{} -> {}'.format(in_type, out_type)
 
     def __repr__(self):
         return '({})'.format(str(self))
 
     def __eq__(self, other):
         return self.__dict__ == other.__dict__
+
+    def arity(self) -> int:
+        ctor_type = self
+        if not isinstance(ctor_type, TArr):
+            return 1
+        ret = 1
+        while isinstance(ctor_type, TArr):
+            ret += 1
+            ctor_type = ctor_type.out_type
+        return ret
 
     def apply(self, subst):
         new_in_type = self.in_type.apply(subst)
@@ -100,6 +133,21 @@ class TArr(Type):
 
     def ftv(self) -> Set[str]:
         return self.in_type.ftv().union(self.out_type.ftv())
+
+    def flatten(self) -> [Type]:
+        ret = [self.in_type]
+        out_t = self.out_type
+        while isinstance(out_t, TArr):
+            ret.append(out_t.in_type)
+            out_t = out_t.out_type
+        ret.append(out_t)
+        return ret
+
+    def to_raw(self) -> RExpr:
+        types = self.flatten()
+        head = [RSymbol("->")]
+        head.extend([t.to_raw() for t in types])
+        return RList(head)
 
     @staticmethod
     def func(*args: [Type]):
@@ -129,6 +177,9 @@ class Tuple(Type):
     def __eq__(self, other):
         return self.__dict__ == other.__dict__
 
+    def arity(self) -> int:
+        return len(self.types)
+
     def apply(self, subst):
         ok = True
         new_types = []
@@ -147,6 +198,12 @@ class Tuple(Type):
         for t in self.types:
             ret = ret.union(t.ftv())
         return ret
+
+    def to_raw(self) -> RExpr:
+        ret = [RSymbol('*')]
+        for t in self.types:
+            ret.append(t.to_raw())
+        return RList(ret)
 
 
 class Defined(Type):
@@ -172,6 +229,9 @@ class Defined(Type):
 
     def __eq__(self, other):
         return self.__dict__ == other.__dict__
+
+    def arity(self) -> int:
+        return len(self.types)
 
     def apply(self, subst):
         ok = True
@@ -202,6 +262,15 @@ class Defined(Type):
             ret.extend(t.find_defined(name))
         return ret
 
+    def to_raw(self) -> RExpr:
+        if len(self.types) > 0:
+            ret = [RSymbol(self.name)]
+            for t in self.types:
+                ret.append(t.to_raw())
+            return RList(ret)
+        else:
+            return RSymbol(self.name)
+
 
 class Schema(object):
 
@@ -231,3 +300,7 @@ class Schema(object):
     @staticmethod
     def none(t: Type):
         return Schema(t, [])
+
+
+
+

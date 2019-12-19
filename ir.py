@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 
 from syntax import *
+from type_sys import *
 
 
 class IRTerm(object, metaclass=ABCMeta):
@@ -131,13 +132,13 @@ class IRCond(IRExpr):
         self.conds = conds
 
     def to_raw(self) -> RExpr:
-        conds = [RList([cond.to_raw(), body.to_raw()]) for (cond, body) in self.conds]
+        conds = [RList([cond.to_raw(), body.to_raw()], sq=True) for (cond, body) in self.conds]
         ret = [RSymbol('cond')]
         ret.extend(conds)
         return RList(ret)
 
     def to_racket(self) -> RExpr:
-        conds = [RList([cond.to_racket(), body.to_racket()]) for (cond, body) in self.conds]
+        conds = [RList([cond.to_racket(), body.to_racket()], sq=True) for (cond, body) in self.conds]
         ret = [RSymbol('cond')]
         ret.extend(conds)
         return RList(ret)
@@ -279,11 +280,12 @@ class IRBegin(IRExpr):
 
 class IRDefine(IRTerm):
 
-    def __init__(self, sym: IRVar, args: [IRVar], body: IRExpr):
+    def __init__(self, sym: IRVar, args: [IRVar], body: IRExpr, anno: Type):
         super(IRDefine, self).__init__()
         self.sym = sym
         self.args = args
         self.body = body
+        self.anno = anno
 
     def to_raw(self) -> RExpr:
         head = [self.sym.to_raw()]
@@ -305,3 +307,26 @@ class IRDefine(IRTerm):
         return ret
 
 
+class IRVarDefine(IRTerm):
+
+    def __init__(self, sym: IRVar, body: IRExpr, anno: Type):
+        super(IRVarDefine, self).__init__()
+        self.sym = sym
+        self.body = body
+        self.anno = anno
+
+    def to_raw(self) -> RExpr:
+        ret = [RSymbol('define'), RSymbol(self.sym.v)]
+        if self.anno is not None:
+            ret.append(self.anno.to_raw())
+        ret.append(self.body.to_raw())
+        return RList(ret)
+
+    def print(self, indent=0) -> [str]:
+        ret = [indent * ' ' + 'define {} to'.format(self.sym.v)]
+        ret.extend(self.body.print(indent + 2))
+        return ret
+
+    def to_racket(self) -> RExpr:
+        ret = [RSymbol('define'), RSymbol(self.sym.v), self.body.to_racket()]
+        return RList(ret)

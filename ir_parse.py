@@ -2,7 +2,7 @@ from ir import *
 from ir_lit import *
 from ir_pat import *
 from type_sys import *
-from typing import Mapping
+from typing import Mapping, Optional
 from collections import OrderedDict
 
 
@@ -341,8 +341,8 @@ def parse_ir_expr(r_expr) -> (IRExpr, [str]):
                     errors.append("wrong arity in quote form")
                     return expr, errors
                 else:
-                    expr, quote_errors = parse_lit(r_expr.v[1])
-                    errors.extend(quote_errors)
+                    expr = parse_lit(r_expr.v[1])
+                    # errors.extend(quote_errors)
                     return expr, errors
             if sym == 'let':
                 expr, let_errors = parse_let(r_expr)
@@ -393,31 +393,70 @@ def parse_ir_expr(r_expr) -> (IRExpr, [str]):
 def parse_define(r_expr: RList) -> (IRDefine, [str]):
     define = None
     errors = []
-    if len(r_expr.v) != 3:
+    if len(r_expr.v) > 4 or len(r_expr.v) < 3:
         errors.append("wrong arity of define form")
         return None, errors
+
     args = r_expr.v[1]
-    body = r_expr.v[2]
+    if len(r_expr.v) == 4:
+        r_ret_type = r_expr.v[2]
+        ret_type, ret_type_errors = parse_type_decl(None, r_ret_type)
+        errors.extend(ret_type_errors)
+        r_body = r_expr.v[3]
+    else:
+        ret_type = None
+        r_body = r_expr.v[2]
 
     if not isinstance(args, RList):
-        errors.append("wrong form of define parameters")
-        return None, errors
+        if isinstance(args, RSymbol):
+            sym = IRVar(args.v)
+            body, body_errors = parse_ir_expr(r_body)
+            errors.extend(body_errors)
+            return IRVarDefine(sym, body, ret_type), errors
+        else:
+            errors.append("wrong form of define parameters")
+            return None, errors
     else:
         vars = []
+        var_names = set()
+        arg_types = []
         for arg in args.v:
             if isinstance(arg, RSymbol):
+                if arg.v in var_names:
+                    errors.append("duplicate argument name {}".format(arg.v))
                 vars.append(IRVar(arg.v))
+                var_names.add(arg.v)
+                arg_types.append(None)
+            elif isinstance(arg, RList) and len(arg.v) == 2 and isinstance(arg.v[0], RSymbol):
+                # parse argument with type annotation
+                sym = arg.v[0]
+                r_anno = arg.v[1]
+                anno, anno_errors = parse_type_decl(None, r_anno)
+                errors.extend(anno_errors)
+                arg_types.append(anno)
+                if sym in var_names:
+                    errors.append("duplicate argument name {}".format(arg.v))
+                vars.append(IRVar(sym))
             else:
-                errors.append("error in lambda parameters, form is not a symbol")
-        ret, ret_errors = parse_ir_expr(body)
+                errors.append("error in lambda parameters, form is not a symbol or symbol with annotation")
+        arg_types.append(ret_type)
+        if all((anno_type is None for anno_type in arg_types)):
+            anno_type = None
+        else:
+            anno_type = TArr.func(*arg_types)
+        ret, ret_errors = parse_ir_expr(r_body)
         errors.extend(ret_errors)
-        define = IRDefine(vars[0], vars[1:], ret)
+        define = IRDefine(vars[0], vars[1:], ret, anno_type)
 
     return define, errors
 
 
 def parse_type_decl(env: (Set[str], Mapping[str, int]), r_expr: RExpr) -> (Type, [str]):
-    bounded_tvar, defined = env
+    if env is None:
+        bounded_tvar = None
+        defined = None
+    else:
+        bounded_tvar, defined = env
     ret_type = None
     errors = []
     if isinstance(r_expr, RSymbol):
@@ -435,6 +474,8 @@ def parse_type_decl(env: (Set[str], Mapping[str, int]), r_expr: RExpr) -> (Type,
         elif str.isupper(sym[0]):
             ret_type = Defined(sym, [])
         else:
+            if bounded_tvar is not None and sym not in bounded_tvar:
+                errors.append("unbounded type variable {}".format(sym))
             ret_type = TVar(sym)
         return ret_type, errors
     elif isinstance(r_expr, RList):
@@ -446,7 +487,7 @@ def parse_type_decl(env: (Set[str], Mapping[str, int]), r_expr: RExpr) -> (Type,
             sub_t, sub_errors = parse_type_decl(env, sub)
             errors.extend(sub_errors)
             subs.append(sub_t)
-        if type_name in defined:
+        if defined is not None and type_name in defined:
             if len(subs) != defined[type_name]:
                 errors.append("wrong arity in type apply")
             return Defined(type_name, subs), errors
@@ -465,6 +506,8 @@ def parse_type_decl(env: (Set[str], Mapping[str, int]), r_expr: RExpr) -> (Type,
                 ret_type = subs[-1]
                 for t in reversed(subs[:-1]):
                     ret_type = TArr(t, ret_type)
+                if len(subs) == 1:
+                    ret_type = TArr(TYPE_UNIT, ret_type)
                 return ret_type, errors
         else:
             print("unknown defined type {}".format(type_name))
