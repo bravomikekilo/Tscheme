@@ -23,7 +23,7 @@ raw_symbol = regex(r"""[^()[\]{}",'`|\s]+""")
 @generate
 def slist():
     forward = yield parsy.regex(r'[([]')
-    atoms = yield raw_atom.sep_by(parsy.whitespace)
+    atoms = yield atom.sep_by(parsy.whitespace)
 
     if forward == '(':
         yield regex(r'\s*') >> parsy.string(')')
@@ -48,7 +48,6 @@ def symbol():
 
 string = regex(r'''"[^"]*"''').map(lambda x: RString(x[1:-1]))
 
-raw_atom = number | symbol | string | slist
 
 
 @generate
@@ -61,6 +60,7 @@ def atom():
     else:
         return ret
 
+raw_atom = number | symbol | string | slist
 
 @generate
 def whole_program():

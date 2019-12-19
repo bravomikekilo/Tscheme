@@ -264,12 +264,12 @@ class IRBegin(IRExpr):
         self.args = args
 
     def to_raw(self) -> RExpr:
-        ret = [RSymbol("begin!")]
+        ret = [RSymbol("begin")]
         ret.extend((arg.to_raw() for arg in self.args))
         return RList(ret)
 
     def to_racket(self) -> RExpr:
-        ret = [RSymbol("begin!")]
+        ret = [RSymbol("begin")]
         ret.extend((arg.to_racket() for arg in self.args))
         return RList(ret)
 

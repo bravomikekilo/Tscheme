@@ -378,6 +378,16 @@ def parse_ir_expr(r_expr) -> (IRExpr, [str]):
                 errors.extend(cond_errors)
                 return expr, errors
 
+            if sym == 'set!':
+                expr, set_errors = parse_set(r_expr)
+                errors.extend(set_errors)
+                return expr, errors
+
+            if sym == 'begin':
+                expr, begin_errors = parse_begin(r_expr)
+                errors.extend(begin_errors)
+                return expr, errors
+
             else:
                 # parse a apply
                 expr, apply_errors = parse_apply(r_expr)

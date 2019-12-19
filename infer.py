@@ -204,7 +204,7 @@ class InferSys(object):
         return t.gen(ps)
 
     def add_equation(self, left: Type, right: Type):
-        # print('add equation {} = {}'.format(left, right))
+        print('add equation {} = {}'.format(left, right))
         self.equations.append((left, right))
 
     def add_equations(self, types: [Type]):
@@ -424,6 +424,8 @@ class InferSys(object):
         args = define.args
         body = define.body
         args_type = [self.new_type_var() for _ in args]
+        if len(args_type) == 0:
+            args_type.append(TYPE_UNIT)
         ret_type = self.new_type_var()
 
         define_type = ret_type
