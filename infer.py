@@ -127,44 +127,52 @@ class TypeEnv(object):
         return TypeEnv(dict())
 
     @staticmethod
+    def ops_to_env(ops: Mapping[str, Type]):
+        tvar_gen = ('t' + str(i) for i in range(1000))
+        ret = dict()
+        for k, v in ops.items():
+            ftv = v.ftv()
+            subst = {f: TVar(next(tvar_gen)) for f in ftv}
+            ret[k] = Schema(v.apply(subst), list(subst.values()))
+        return ret
+
+    @staticmethod
     def default():
         number = TYPE_NUMBER
         bool = TYPE_BOOL
 
-        t1 = TVar('t1')
-        t2 = TVar('t2')
-        t3 = TVar('t3')
-        t4 = TVar('t4')
-        t5 = TVar('t5')
-        t6 = TVar('t6')
-        t7 = TVar('t7')
-        t8 = TVar('t8')
-        t9 = TVar('t9')
+        a = TVar('a')
+        b = TVar('b')
+        c = TVar('c')
+        d = TVar('d')
 
         def listof(t_var: TVar):
             return Defined("List", [t_var])
 
         ops = {
-            '+': Schema.none(TArr.func(number, number, number)),
-            '-': Schema.none(TArr.func(number, number, number)),
-            '*': Schema.none(TArr.func(number, number, number)),
-            '/': Schema.none(TArr.func(number, number, number)),
-            '=': Schema.none(TArr.func(number, number, bool)),
-            '>': Schema.none(TArr.func(number, number, bool)),
-            '<': Schema.none(TArr.func(number, number, bool)),
-            'and': Schema.none(TArr.func(bool, bool, bool)),
-            'or': Schema.none(TArr.func(bool, bool, bool)),
-            'not': Schema.none(TArr.func(bool, bool)),
-            'rand': Schema.none(TArr.func(TYPE_UNIT, number)),
-            'cons': Schema.none(TArr.func(t3, listof(t3), listof(t3))),
-            'car': Schema(TArr.func(listof(t7), t7), [t7]),
-            'cdr': Schema(TArr.func(listof(t7), listof(t7)), [t7]),
-            'Cons': Schema(TArr.func(t1, listof(t1), listof(t1)), [t1]),
-            'Nil': Schema(listof(t2), [t2]),
-            'null': Schema(listof(t4), [t4]),
-            'print': Schema(TArr.func(t5, TYPE_UNIT), [t5]),
-            'println': Schema(TArr.func(t6, TYPE_UNIT), [t6]),
+            '+': TArr.func(number, number, number),
+            '-': TArr.func(number, number, number),
+            '*': TArr.func(number, number, number),
+            '/': TArr.func(number, number, number),
+            '=': TArr.func(number, number, bool),
+            '>': TArr.func(number, number, bool),
+            '<': TArr.func(number, number, bool),
+            'and': TArr.func(bool, bool, bool),
+            'or': TArr.func(bool, bool, bool),
+            'not': TArr.func(bool, bool),
+            'rand': TArr.func(TYPE_UNIT, number),
+            'cons': TArr.func(a, listof(a), listof(a)),
+            'car': TArr.func(listof(a), a),
+            'cdr': TArr.func(listof(a), listof(a)),
+            'Cons': TArr.func(a, listof(a), listof(a)),
+            'Nil': listof(a),
+            'null': listof(a),
+            'print': TArr.func(a, TYPE_UNIT),
+            'println': TArr.func(a, TYPE_UNIT),
+            "read-line": TArr.func(TYPE_UNIT, TYPE_STRING),
         }
+
+        ops = TypeEnv.ops_to_env(ops)
 
         return TypeEnv(ops)
 

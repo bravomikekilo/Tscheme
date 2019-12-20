@@ -4,7 +4,7 @@ from ir_pat import *
 from type_sys import *
 from typing import Mapping, Optional
 from collections import OrderedDict
-
+from code_gen import RecordCtor, RecordExtractor, SumCtor
 
 class ParseError(object):
 
@@ -548,9 +548,9 @@ def parse_type_decl(env: (Set[str], Mapping[str, int]), r_expr: RExpr) -> (Type,
     return ret_type, errors
 
 
-def parse_define_ctors(defined: Type,
-                       type_arity: Mapping[str, int],
-                       r_expr: RList) -> ([(str, Type)], [ParseError]):
+def parse_define_sum_ctors(defined: Type,
+                           type_arity: Mapping[str, int],
+                           r_expr: RList) -> ([(str, Type)], [ParseError]):
     errors = []
     ctors = []
 
@@ -579,7 +579,47 @@ def parse_define_ctors(defined: Type,
     return ctors, errors
 
 
-def parse_define_sum(r_expr: RList) -> (Defined, [ParseError]):
+def parse_define_record_ctor(defined: Defined, type_arity, r_expr: RList) -> (RecordCtor, [RecordExtractor], [ParseError]):
+    ctor = None
+    exts = []
+    errors = []
+
+    ftv = defined.ftv()
+    env = (ftv, type_arity)
+
+    if len(r_expr.v) < 3:
+        errors.append(ParseError(r_expr.span, 'wrong arity in define-record'))
+        return ctor, exts, errors
+
+    field_types = []
+    for i, r_ext in enumerate(r_expr.v[2:]):
+
+        if not isinstance(r_ext, RList) and len(r_ext.v) == 2:
+            errors.append(ParseError(r_ext.span, "field in record define must be a pair"))
+            continue
+        if not isinstance(r_ext.v[0], RSymbol):
+            errors.append(ParseError(r_ext.v[0].span, "field name must be a symbol"))
+
+        ext_name = r_ext.v[0].v
+        r_field_type = r_ext.v[1]
+        field_type, field_type_errors = parse_type_decl(env, r_field_type)
+        field_types.append(field_type)
+
+        if len(field_type_errors) > 0:
+            errors.append(ParseError(r_field_type.span, 'parse type error'))
+        errors.extend(field_type_errors)
+        ext_full_name = '{}.{}'.format(defined.name, ext_name)
+        ext_type = TArr(defined, field_type)
+        exts.append(RecordExtractor(ext_full_name, t=ext_type, order=i))
+
+    field_types.append(defined)
+    ctor_type = TArr.func(*field_types)
+    ctor = RecordCtor(name=defined.name, t=ctor_type)
+
+    return ctor, exts, errors
+
+
+def parse_define_type(r_expr: RList) -> (Defined, [ParseError]):
     errors = []
     ret_type = None
     if len(r_expr.v) < 3:
@@ -626,7 +666,8 @@ def is_type_def(r_expr: RExpr) -> bool:
     if isinstance(r_expr, RList) \
             and len(r_expr.v) > 0 \
             and isinstance(r_expr.v[0], RSymbol):
-        return r_expr.v[0].v == 'define-sum'
+        sym = r_expr.v[0].v
+        return sym == 'define-sum' or sym == 'define-record'
     else:
         return False
 
@@ -637,7 +678,7 @@ def extract_and_check_type(r_exprs: [RList]):
     errors = []
 
     for r_expr in r_exprs:
-        defined, defined_errors = parse_define_sum(r_expr)
+        defined, defined_errors = parse_define_type(r_expr)
         errors.extend(defined_errors)
         if defined.name not in types:
             types[defined.name] = defined
@@ -649,7 +690,7 @@ def extract_and_check_type(r_exprs: [RList]):
 
     arity = {k: len(v.types) for k, v in types.items()}
     for r_expr, (name, t) in zip(r_exprs, types.items()):
-        parsed_ctors, ctor_errors = parse_define_ctors(t, arity, r_expr)
+        parsed_ctors, ctor_errors = parse_define_sum_ctors(t, arity, r_expr)
         ctors.extend(parsed_ctors)
 
     return types, ctors, errors

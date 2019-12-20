@@ -1,11 +1,64 @@
 #!/usr/bin/env python3
 from infer import *
-from ir_parse import is_type_def, parse_define_sum, parse_define_ctors
+from typing import Set
+from ir_parse import ParseError
+from ir_parse import is_type_def, parse_define_type, parse_define_sum_ctors, parse_define_record_ctor
 from ir_parse import parse_define, parse_ir_expr, parse_lit
 from collections import OrderedDict
 from parsing import whole_program
+from code_gen import CodeGen, SumCtor
 
 from argparse import ArgumentParser
+
+
+def extract_type(forms: [RExpr]) -> (([RExpr], Set[str], Mapping[str, Type], Mapping[str, Type], [CodeGen]), [ParseError]):
+    errors = []
+    record_names = set()
+    types = OrderedDict()
+    funcs = OrderedDict()
+    code_gens = []
+
+    type_forms = [form for form in forms if is_type_def(form)]
+    other_forms = [form for form in forms if not is_type_def(form)]
+
+    # first parse out all types declarations
+    for r_expr in type_forms:
+        defined, defined_errors = parse_define_type(r_expr)
+        errors.extend(defined_errors)
+        if defined.name not in types:
+            types[defined.name] = defined
+        else:
+            errors.append(ParseError(r_expr.span, "type {} has been defined".format(defined.name)))
+
+    if len(errors) > 0:
+        return (other_forms, record_names, types, funcs, code_gens), errors
+
+    arity = {k: len(v.types) for k, v in types.items()}
+
+    for r_expr, (name, t) in zip(type_forms, types.items()):
+        if r_expr.v[0].v == 'define-record':
+            # parse record type ctor and extractor
+            record_names.add(name)
+            ctor, exts, record_errors = parse_define_record_ctor(t, arity, r_expr)
+            if len(record_errors) > 0:
+                errors.extend(record_errors)
+            funcs[ctor.name] = ctor.type
+            for ext in exts:
+                funcs[ext.name] = ext.type
+            code_gens.append(ctor)
+            code_gens.extend(exts)
+        else:
+            parsed_ctors, ctor_errors = parse_define_sum_ctors(t, arity, r_expr)
+
+            if len(ctor_errors) == 0:
+                errors.extend(ctor_errors)
+            for ctor_name, ctor_type in parsed_ctors:
+                full_name = '{}.{}'.format(t.name, ctor_name)
+                sum_type_ctor = SumCtor(name=full_name, t=ctor_type)
+                funcs[sum_type_ctor.name] = sum_type_ctor.type
+                code_gens.append(sum_type_ctor)
+
+    return (other_forms, record_names, types, funcs, code_gens), errors
 
 
 class TypeChecker(object):
@@ -26,7 +79,7 @@ class TypeChecker(object):
         ctors = OrderedDict()
 
         for r_expr in type_forms:
-            defined, defined_errors = parse_define_sum(r_expr)
+            defined, defined_errors = parse_define_type(r_expr)
             errors.extend(defined_errors)
             if defined.name not in types:
                 types[defined.name] = defined
@@ -38,7 +91,7 @@ class TypeChecker(object):
         arity = {k: len(v.types) for k, v in types.items()}
 
         for r_expr, (name, t) in zip(type_forms, types.items()):
-            parsed_ctors, ctor_errors = parse_define_ctors(t, arity, r_expr)
+            parsed_ctors, ctor_errors = parse_define_sum_ctors(t, arity, r_expr)
             errors.extend(ctor_errors)
             if len(ctor_errors) == 0:
                 for ctor_name, ctor in parsed_ctors:
