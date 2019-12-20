@@ -278,6 +278,8 @@ class InferSys(object):
             self.add_equation(ref, t)
 
     def inst(self, schema: Schema):
+        if schema.is_dummy():
+            return schema.type
         new_type_vars = {v.v: self.new_type_var() for v in schema.vars}
         return schema.type.apply(new_type_vars)
 
@@ -489,17 +491,26 @@ class InferSys(object):
         args = define.args
         body = define.body
 
-        args_type = [self.new_type_var() for _ in args]
-        if len(args_type) == 0:
-            args_type.append(TYPE_UNIT)
-        ret_type = self.new_type_var()
+        if define.anno is None:
+            args_type = [self.new_type_var() for _ in args]
+            if len(args_type) == 0:
+                args_type.append(TYPE_UNIT)
+            ret_type = self.new_type_var()
 
-        define_type = ret_type
-        for arg_type in reversed(args_type):
-            define_type = TArr(arg_type, define_type)
+            define_type = ret_type
+            for arg_type in reversed(args_type):
+                define_type = TArr(arg_type, define_type)
+            schema = Schema.none(define_type)
+        else:
+            schema = anno_to_schema(define.anno, self)
+
+        unknown_type = self.inst(schema)
+        components = unknown_type.flatten()
+        args_type = components[:-1]
+        ret_type = components[-1]
 
         to_env = [(arg, Schema.none(arg_type)) for arg, arg_type in zip(args, args_type)]
-        to_env.append((sym, Schema.none(define_type)))
+        to_env.append((sym, schema))
 
         body_type = self.infer_ir_expr(
             env.extend(to_env),
@@ -508,7 +519,7 @@ class InferSys(object):
 
         self.add_equation(ret_type, body_type)
 
-        return define_type
+        return unknown_type
 
     def try_solve_curr_equations(self):
         try:

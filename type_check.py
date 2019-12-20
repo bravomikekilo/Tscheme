@@ -164,24 +164,23 @@ class TypeChecker(object):
                         if define.anno is not None:
                             anno = define.anno
                             matched, subst = confirm(t, anno)
-                            print('origin solved type', t)
+                            # print('origin solved type', t)
                             if not matched:
                                 msg = 'define {} type mismatch, infered {}, but annotation is {}' \
                                     .format(define.sym.v, t.apply(subst), anno)
-                                print(ParseError(expr.span, msg))
+                                print('type of anno', type(anno))
+                                errors.append(ParseError(expr.span, msg))
+                                continue
                             else:
-                                if isinstance(anno, TArr) and (None in anno.flatten()):
+                                # print('type matched')
+                                # print('flattened anno', anno.flatten())
+                                if isinstance(anno, TArr) and (any(t is None for t in anno.flatten())):
+
                                     msg = 'define {} type fullfilled, infered {}, annotation is {}' \
                                         .format(define.sym.v, t.apply(subst), anno)
                                     print(ParseError(expr.span, msg))
-                        s = infer_sys.generalize(t)
 
-                        if define.anno is not None:
-                            match, subst = confirm(t, define.anno)
-                            if not match:
-                                msg = 'type mismatch in define {}, annotation is {}, but infered is {}' \
-                                    .format(define.sym.v, define.anno, t.apply(subst))
-                                errors.append(ParseError(expr.span, msg))
+                        s = infer_sys.generalize(t)
                         type_env = type_env.add(define.sym, s)
                         if verbose:
                             if s.is_dummy():

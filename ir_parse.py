@@ -521,16 +521,13 @@ def parse_type_decl(env: (Set[str], Mapping[str, int]), r_expr: RExpr) -> (Type,
             sub_t, sub_errors = parse_type_decl(env, sub)
             errors.extend(sub_errors)
             subs.append(sub_t)
-        if defined is not None and type_name in defined:
-            if len(subs) != defined[type_name]:
-                errors.append(ParseError(r_expr.span, "wrong arity in type apply"))
-            return Defined(type_name, subs), errors
-        elif type_name == '*':
+        if type_name == '*':
             # parse a tuple type
             if len(subs) == 0:
                 return TYPE_UNIT, errors
             else:
                 return Tuple(subs), errors
+
         elif type_name == '->':
             # parse a function type
             if len(subs) == 0:
@@ -543,6 +540,14 @@ def parse_type_decl(env: (Set[str], Mapping[str, int]), r_expr: RExpr) -> (Type,
                 if len(subs) == 1:
                     ret_type = TArr(TYPE_UNIT, ret_type)
                 return ret_type, errors
+
+        elif defined is None or type_name in defined:
+            if defined is None:
+                return Defined(type_name, subs), errors
+            if len(subs) != defined[type_name]:
+                errors.append(ParseError(r_expr.span, "wrong arity in type apply"))
+            return Defined(type_name, subs), errors
+
         else:
             print("unknown defined type {}".format(type_name))
             errors.append(ParseError(r_expr.span, "unknown defined type {}".format(type_name)))

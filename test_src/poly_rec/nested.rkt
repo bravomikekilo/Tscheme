@@ -11,7 +11,7 @@
 )
 
 
-(define (length n) (match n
+(define (length [n (Nest a)]) Number (match n
     [(Nest.None) 1]
     [(Nest.Nest _ xs) (+ 1 (length xs))]
 ))
