@@ -11,9 +11,9 @@
 )
 
 
-(define (length [n (Nest a)]) Number (match n
+(define (deepth [n (Nest a)]) Number (match n
     [(Nest.None) 0]
-    [(Nest.Nest _ xs) (+ 1 (length xs))]
+    [(Nest.Nest _ xs) (+ 1 (deepth xs))]
 ))
 
-(print (length nested))
+(print (deepth nested))

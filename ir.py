@@ -25,6 +25,8 @@ class IRExpr(IRTerm, metaclass=ABCMeta):
     def __init__(self):
         super(IRExpr, self).__init__()
 
+    def has_ref(self, syms: Set[str]) -> Set[str]:
+        raise NotImplementedError()
 
 class IRVar(IRExpr):
 
@@ -35,11 +37,20 @@ class IRVar(IRExpr):
     def __str__(self):
         return self.v
 
+    def __hash__(self):
+        return hash(self.v)
+
     def to_raw(self) -> RExpr:
         return RSymbol(self.v)
 
     def print(self, indent=0) -> [str]:
         return [indent * ' ' + self.v]
+
+    def has_ref(self, syms: Set[str]) -> Set[str]:
+        if self.v in syms:
+            return {self.v}
+        else:
+            return set()
 
 
 class IRApply(IRExpr):
@@ -66,6 +77,12 @@ class IRApply(IRExpr):
         ret.extend(f_lines)
         for arg in self.args:
             ret.extend(arg.print(indent=indent + 2))
+        return ret
+
+    def has_ref(self, syms: Set[str]) -> Set[str]:
+        ret = self.f.has_ref(syms)
+        for arg in self.args:
+            ret = ret.union(arg.has_ref(syms))
         return ret
 
 
@@ -102,6 +119,15 @@ class IRLet(IRExpr):
         ret.extend(self.body.print(indent + 2))
         return ret
 
+    def has_ref(self, syms: Set[str]) -> Set[str]:
+        ret = self.body.has_ref(syms)
+        binds = [env[0].v for env in self.envs]
+        ret = ret.difference(binds)
+
+        for _, d in self.envs:
+            ret = ret.union(d.has_ref(syms))
+        return ret
+
 
 class IRIf(IRExpr):
 
@@ -125,6 +151,12 @@ class IRIf(IRExpr):
         ret.extend(self.then.print(indent + 2))
         ret.append(indent * ' ' + 'else')
         ret.extend(self.el.print(indent + 2))
+        return ret
+
+    def has_ref(self, syms: Set[str]) -> Set[str]:
+        ret = self.cond.has_ref(syms)
+        ret = ret.union(self.then.has_ref(syms))
+        ret = ret.union(self.el.has_ref(syms))
         return ret
 
 
@@ -161,6 +193,14 @@ class IRCond(IRExpr):
             ret.extend(self.print_arm(cond, arm, indent + 2))
         return ret
 
+    def has_ref(self, syms: Set[str]) -> Set[str]:
+        ret = set()
+        for cond, arm in self.conds:
+            ret = ret.union(cond.has_ref(syms))
+            ret = ret.union(arm.has_ref(syms))
+
+        return ret
+
 
 class IRLambda(IRExpr):
 
@@ -184,6 +224,12 @@ class IRLambda(IRExpr):
             ret.extend(arg.print(indent + 2))
         ret.append(indent * ' ' + 'to')
         ret.extend(self.body.print(indent + 2))
+        return ret
+
+    def has_ref(self, syms: Set[str]) -> Set[str]:
+        ret = self.body.has_ref(syms)
+        args = set([arg.v for arg in self.args])
+        ret = ret.difference(args)
         return ret
 
 
@@ -210,6 +256,12 @@ class IRListCtor(IRExpr):
             ret.extend(arg.print(indent=indent + 2))
         return ret
 
+    def has_ref(self, syms: Set[str]) -> Set[str]:
+        ret = set()
+        for arg in self.args:
+            ret = ret.union(arg.has_ref(syms))
+        return ret
+
 
 class IRTupleCtor(IRExpr):
 
@@ -232,6 +284,12 @@ class IRTupleCtor(IRExpr):
         ret = [headline]
         for arg in self.args:
             ret.extend(arg.print(indent=indent + 2))
+        return ret
+
+    def has_ref(self, syms: Set[str]) -> Set[str]:
+        ret = set()
+        for arg in self.args:
+            ret = ret.union(arg.has_ref(syms))
         return ret
 
 
@@ -258,6 +316,9 @@ class IRSet(IRExpr):
         ret.extend(self.var.print(indent=indent + 2))
         return ret
 
+    def has_ref(self, syms: Set[str]) -> Set[str]:
+        return self.var.has_ref(syms)
+
 
 class IRBegin(IRExpr):
 
@@ -282,15 +343,42 @@ class IRBegin(IRExpr):
             ret.extend(arg.print(indent=indent + 2))
         return ret
 
+    def has_ref(self, syms: Set[str]) -> Set[str]:
+        ret = set()
+        for arg in self.args:
+            ret = ret.union(arg.has_ref(syms))
+        return ret
 
-class IRDefine(IRTerm):
+
+class IRDef(IRTerm):
+
+    def print(self, indent=0) -> [str]:
+        raise NotImplementedError()
+
+    def to_raw(self) -> RExpr:
+        raise NotImplementedError()
+
+    def __init__(self, sym: IRVar, anno: Type):
+        super(IRDef, self).__init__()
+        self.sym = sym
+        self.anno = anno
+
+    def get_name(self):
+        raise NotImplementedError()
+
+    def has_ref(self, syms: Set[str]) -> Set[str]:
+        raise NotImplementedError()
+
+
+class IRDefine(IRDef):
 
     def __init__(self, sym: IRVar, args: [IRVar], body: IRExpr, anno: Type):
-        super(IRDefine, self).__init__()
-        self.sym = sym
+        super(IRDefine, self).__init__(sym, anno)
         self.args = args
         self.body = body
-        self.anno = anno
+
+    def get_name(self):
+        return self.sym.v
 
     def to_raw(self) -> RExpr:
         head = [self.sym.to_raw()]
@@ -311,14 +399,18 @@ class IRDefine(IRTerm):
         ret.extend(self.body.print(indent + 2))
         return ret
 
+    def has_ref(self, syms: Set[str]) -> Set[str]:
+        return self.body.has_ref(syms)
 
-class IRVarDefine(IRTerm):
+
+class IRVarDefine(IRDef):
 
     def __init__(self, sym: IRVar, body: IRExpr, anno: Type):
-        super(IRVarDefine, self).__init__()
-        self.sym = sym
+        super(IRVarDefine, self).__init__(sym, anno)
         self.body = body
-        self.anno = anno
+
+    def get_name(self):
+        return self.sym.v
 
     def to_raw(self) -> RExpr:
         ret = [RSymbol('define'), RSymbol(self.sym.v)]
@@ -335,3 +427,6 @@ class IRVarDefine(IRTerm):
     def to_racket(self, env=None) -> RExpr:
         ret = [RSymbol('define'), RSymbol(self.sym.v), self.body.to_racket(env=env)]
         return RList(ret)
+
+    def has_ref(self, sym: Set[str]) -> Set[str]:
+        return self.body.has_ref(sym)

@@ -15,6 +15,8 @@ class IRLit(IRExpr):
     def to_raw(self) -> RExpr:
         return self.to_lit()
 
+    def has_ref(self, syms: Set[str]) -> Set[str]:
+        return set()
 
 class IRInt(IRLit):
     def __init__(self, v: int):

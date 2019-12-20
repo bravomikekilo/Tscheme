@@ -479,12 +479,63 @@ class InferSys(object):
     def infer_var_define(self, env: TypeEnv, define: IRVarDefine) -> Type:
         sym = define.sym
         body = define.body
-        sym_type = self.new_type_var()
-        new_env = env.add(sym, Schema.none(sym_type))
-        body_type = self.infer_ir_expr(new_env, body)
-        # print('var define body type:', body_type)
-        self.add_equation(sym_type, body_type)
-        return sym_type
+        if define.anno is None:
+            sym_type = self.new_type_var()
+            new_env = env.add(sym, Schema.none(sym_type))
+            body_type = self.infer_ir_expr(new_env, body)
+            # print('var define body type:', body_type)
+            self.add_equation(sym_type, body_type)
+            return sym_type
+        else:
+            schema = anno_to_schema(define.anno, self)
+            new_env = self.env.add(sym, schema)
+            body_type = self.infer_ir_expr(new_env, body)
+            return body_type
+
+    def infer_ir_schema(self, define: IRDef) -> Schema:
+        if define.anno is None:
+            if isinstance(define, IRVarDefine):
+                sym_type = self.new_type_var()
+                schema = Schema.none(sym_type)
+                return schema
+            elif isinstance(define, IRDefine):
+                pass
+                args_type = [self.new_type_var() for _ in define.args]
+                if len(args_type) == 0:
+                    args_type.append(TYPE_UNIT)
+                ret_type = self.new_type_var()
+
+                define_type = ret_type
+                for arg_type in reversed(args_type):
+                    define_type = TArr(arg_type, define_type)
+                schema = Schema.none(define_type)
+                return schema
+        else:
+            schema = anno_to_schema(define.anno, self)
+            return schema
+
+    def infer_ir_def_with_schema(self, env: TypeEnv, define: IRDef, schema: Schema) -> Type:
+        if isinstance(define, IRVarDefine):
+            body_type = self.infer_ir_expr(env, define.body)
+            return body_type
+
+        elif isinstance(define, IRDefine):
+            unknown_type = self.inst(schema)
+            components = unknown_type.flatten()
+            args_type = components[:-1]
+            ret_type = components[-1]
+
+            to_env = [(arg, Schema.none(arg_type)) for arg, arg_type in zip(define.args, args_type)]
+            to_env.append((define.sym, schema))
+
+            body_type = self.infer_ir_expr(
+                env.extend(to_env),
+                define.body
+            )
+
+            self.add_equation(ret_type, body_type)
+
+            return unknown_type
 
     def infer_ir_define(self, env: TypeEnv, define: IRDefine) -> Type:
         sym = define.sym
@@ -520,6 +571,24 @@ class InferSys(object):
         self.add_equation(ret_type, body_type)
 
         return unknown_type
+
+    def infer_ir_many_def(self, env: TypeEnv, defs: [IRDef]) -> [Type]:
+        schemas = [self.infer_ir_schema(_def) for _def in defs]
+        syms = [_def.sym for _def in defs]
+        to_env = [(sym, schema) for sym, schema in zip(syms, schemas)]
+        common_env = env.extend(to_env)
+        types = [self.infer_ir_def_with_schema(common_env, _def, schema) for _def, schema in zip(defs, schemas)]
+        return types
+
+    def solve_ir_many_def(self, env: TypeEnv, defs: [IRDef]) -> [Type]:
+        try:
+            types = self.infer_ir_many_def(env, defs)
+            subst = self.solve_curr_equation()
+            types = [t.apply(subst) for t in types]
+        except UniException as e:
+            return None, e.why
+
+        return types, None
 
     def try_solve_curr_equations(self):
         try:

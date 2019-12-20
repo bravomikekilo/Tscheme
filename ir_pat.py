@@ -12,6 +12,9 @@ class IRPat(IRTerm):
     def print(self, indent=0) -> [str]:
         raise NotImplementedError()
 
+    def bind_set(self) -> Set[str]:
+        raise NotImplementedError()
+
 
 class IRVarPat(IRPat):
 
@@ -24,6 +27,9 @@ class IRVarPat(IRPat):
 
     def print(self, indent=0) -> [str]:
         return self.var.print(indent=indent)
+
+    def bind_set(self) -> Set[str]:
+        return set(self.var.v)
 
 
 class IRListPat(IRPat):
@@ -51,6 +57,13 @@ class IRListPat(IRPat):
             ret.extend(v.print(indent=indent + 2))
         return ret
 
+    def bind_set(self) -> Set[str]:
+        pass
+        if len(self.vs) == 0:
+            return set()
+        else:
+            return set.union(*[v.bind_set() for v in self.vs])
+
 
 class IRTuplePat(IRPat):
 
@@ -76,6 +89,13 @@ class IRTuplePat(IRPat):
         for v in self.vs:
             ret.extend(v.print(indent=indent + 2))
         return ret
+
+    def bind_set(self) -> Set[str]:
+        pass
+        if len(self.vs) == 0:
+            return set()
+        else:
+            return set.union(*[v.bind_set() for v in self.vs])
 
 
 class IRCtorPat(IRPat):
@@ -122,6 +142,13 @@ class IRCtorPat(IRPat):
             ret.extend(v.print(indent=indent + 2))
         return ret
 
+    def bind_set(self) -> Set[str]:
+        pass
+        if len(self.vs) == 0:
+            return set()
+        else:
+            return set.union(*[v.bind_set() for v in self.vs])
+
 
 class IRLitPat(IRPat):
 
@@ -134,6 +161,9 @@ class IRLitPat(IRPat):
 
     def print(self, indent=0) -> [str]:
         return self.lit.print(indent=indent)
+
+    def bind_set(self) -> Set[str]:
+        return set()
 
 
 class IRMatch(IRExpr):
@@ -168,3 +198,10 @@ class IRMatch(IRExpr):
             ret.append(indent * ' ' + ']')
         return ret
 
+    def has_ref(self, syms: Set[str]) -> Set[str]:
+        ret = self.v.has_ref(syms)
+        for (pat, body) in self.arms:
+            body_ref = body.has_ref(syms)
+            binds = pat.bind_set()
+            ret = ret.union(body_ref.difference(binds))
+        return ret
