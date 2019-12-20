@@ -1,7 +1,15 @@
+from typing import Set
 from type_check import TypeChecker
 from argparse import ArgumentParser
 from parsing import whole_program
 from code_gen import gen_ctor_define
+
+
+class CompileContext(object):
+
+    def __init__(self, record_names: Set[str]):
+        super(CompileContext, self).__init__()
+        self.record_names = record_names
 
 
 def main():
@@ -21,20 +29,21 @@ def main():
     r_exprs = whole_program.parse(SRC)
 
     checker = TypeChecker()
-    types, ctors, ir_terms, errors = checker.check_content(r_exprs, verbose=not SILENT)
+    code_gens, record_names, ir_terms, errors = checker.check_content(r_exprs, verbose=not SILENT)
 
     if len(errors) > 0:
         for error in errors:
             print(error)
 
     compiled_forms = []
-    for ctor_name, ctor_type in ctors.items():
-        ctor_gen = gen_ctor_define(ctor_name, ctor_type)
-        if ctor_gen is not None:
-            compiled_forms.append(ctor_gen)
+    for code_gen in code_gens:
+        # ctor_gen = gen_ctor_define(ctor_name, ctor_type)
+        compiled_forms.append(code_gen.code_gen())
+
+    context = CompileContext(record_names)
 
     for ir_term in ir_terms:
-        compiled_forms.append(ir_term.to_racket())
+        compiled_forms.append(ir_term.to_racket(env=context))
 
     with open(OUTPUT_PATH, 'w') as out_f:
         out_f.write('#lang racket\n\n')

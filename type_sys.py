@@ -222,7 +222,10 @@ class Defined(Type):
             if isinstance(t, Defined) and len(t.types) > 0:
                 bulk = '({})'.format(bulk)
             ps.append(bulk)
-        return "{} {}".format(self.name, ' '.join(ps))
+        if ps:
+            return "{} {}".format(self.name, ' '.join(ps))
+        else:
+            return self.name
 
     def __repr__(self):
         return 'Defined[{}]({})'.format(self.name, ', '.join(repr(t) for t in self.types))

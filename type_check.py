@@ -100,30 +100,31 @@ class TypeChecker(object):
         return types, ctors, errors
 
     def check_content(self, r_exprs: [RExpr], verbose=False) -> \
-            (Mapping[str, Type], Mapping[str, Type], [IRTerm], [str]):
+            ([CodeGen], Set[str], [IRTerm], [ParseError]):
         errors = []
         ir_terms = []
-        type_forms = [form for form in r_exprs if is_type_def(form)]
-        other_forms = [form for form in r_exprs if not is_type_def(form)]
-        types, ctors, type_errors = self.check_types(type_forms)
+        (other_forms, record_names, types, funcs, code_gens), type_errors = extract_type(r_exprs)
+        # types, ctors, type_errors = self.check_types(type_forms)
+
         if len(type_errors) > 0:
             errors.extend(type_errors)
-            return types, ctors, ir_terms, errors
+            return code_gens, record_names, ir_terms, errors
 
         infer_sys = InferSys()
         type_env = TypeEnv.default()
 
         if verbose:
             for type_name, t in types.items():
-                print("get type:", t)
+                print("defined type {} :: {}".format(type_name, t))
 
-        ctor_schemas = []
-        for ctor_name, ctor_type in ctors.items():
-            if verbose:
-                print("get data ctor {} :: {}".format(ctor_name, ctor_type))
-            s = infer_sys.generalize(ctor_type)
-            ctor_schemas.append((IRVar(ctor_name), s))
-        type_env = type_env.extend(ctor_schemas)
+            for name, t in funcs.items():
+                print("get func {} :: {}".format(name, t))
+
+        schemas = []
+        schemas.extend(((TVar(name), infer_sys.generalize(t)) for name, t in types.items()))
+        schemas.extend(((TVar(name), infer_sys.generalize(t)) for name, t in funcs.items()))
+
+        type_env = type_env.extend(schemas)
 
         for expr in other_forms:
             if isinstance(expr, RList):
@@ -151,20 +152,20 @@ class TypeChecker(object):
                             if not matched:
                                 msg = 'define {} type mismatch, infered {}, but annotation is {}'\
                                     .format(define.sym.v, t.apply(subst), anno)
-                                print(msg)
+                                print(ParseError(expr.span, msg))
                             else:
                                 msg = 'define {} type fullfilled, infered {}, annotation is {}'\
                                         .format(define.sym.v, t.apply(subst), anno)
-                                print(msg)
+                                print(ParseError(expr.span, msg))
                             s = infer_sys.generalize(t)
                         else:
                             s = infer_sys.generalize(t)
                         if define.anno is not None:
                             match, subst = confirm(t, define.anno)
                             if not match:
-                                errors.append(
-                                    'type mismatch in define {}, annotation is {}, but infered is {}'
-                                        .format(define.sym.v, define.anno, t.apply(subst)))
+                                msg = 'type mismatch in define {}, annotation is {}, but infered is {}'\
+                                        .format(define.sym.v, define.anno, t.apply(subst))
+                                errors.append(ParseError(expr.span, msg))
                         type_env = type_env.add(define.sym, s)
                         if verbose:
                             if s.is_dummy():
@@ -192,7 +193,7 @@ class TypeChecker(object):
                         if verbose:
                             print('expr: {} :: {}'.format(ir_expr.to_raw(), t))
                     else:
-                        errors.append("expr head must be a lambda or a symbol")
+                        errors.append(ParseError(expr.span, "expr head must be a lambda or a symbol"))
                         continue
             else:
                 lit = parse_lit(expr)
@@ -200,7 +201,8 @@ class TypeChecker(object):
                 t = infer_sys.solve_ir_expr(type_env, lit)
                 if verbose:
                     print('literal: {} :: {}'.format(lit.to_raw(), t))
-        return types, ctors, ir_terms, errors
+
+        return code_gens, record_names, ir_terms, errors
 
 
 def main():
