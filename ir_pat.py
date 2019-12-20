@@ -107,6 +107,9 @@ class IRCtorPat(IRPat):
         elif ctor_name == 'Nil':
             return quote(RList([]))
         else:
+            if len(self.vs) == 0:
+                ret = quote(RSymbol(ctor_name))
+                return ret
             ret = [RSymbol('list'), quote(RSymbol(ctor_name))]
         for v in self.vs:
             ret.append(v.to_racket())

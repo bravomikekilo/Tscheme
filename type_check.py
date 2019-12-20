@@ -106,6 +106,12 @@ class TypeChecker(object):
 
         return types, ctors, errors
 
+    @staticmethod
+    def is_define_form(form: RExpr):
+        if isinstance(form, RList) and len(form.v) > 0 and isinstance(form.v[0], RSymbol):
+            return form.v[0].v == 'define'
+        return False
+
     def check_content(self, r_exprs: [RExpr], verbose=False) -> \
             ([CodeGen], Set[str], [IRTerm], [ParseError]):
         errors = []
@@ -133,6 +139,73 @@ class TypeChecker(object):
 
         type_env = type_env.extend(schemas)
 
+        define_forms = [f for f in other_forms if TypeChecker.is_define_form(f)]
+        expr_forms = [f for f in other_forms if not TypeChecker.is_define_form(f)]
+
+        for expr in define_forms:
+            pass
+            define, errs = parse_define(expr)
+            ir_terms.append(define)
+            errors.extend(errs)
+            if len(errs) > 0:
+                continue
+            if isinstance(define, IRDefine):
+                t, msg = infer_sys.solve_ir_define(type_env, define)
+            else:
+                t, msg = infer_sys.solve_var_define(type_env, define)
+
+            if msg is not None:
+                errors.append(
+                    ParseError(
+                        expr.span,
+                        'type error, unification error: {}'.format(msg)
+                    )
+                )
+                continue
+
+            if define.anno is not None:
+                anno = define.anno
+                matched, subst = confirm(t, anno)
+                # print('origin solved type', t)
+                if not matched:
+                    msg = 'define {} type mismatch, infered {}, but annotation is {}' \
+                        .format(define.sym.v, t.apply(subst), anno)
+                    # print('type of anno', type(anno))
+                    errors.append(ParseError(expr.span, msg))
+                    continue
+                else:
+                    # print('type matched')
+                    # print('flattened anno', anno.flatten())
+                    if isinstance(anno, TArr) and (any(t is None for t in anno.flatten())):
+                        msg = 'define {} type fullfilled, infered {}, annotation is {}' \
+                            .format(define.sym.v, t.apply(subst), anno)
+                        print(ParseError(expr.span, msg))
+
+            s = infer_sys.generalize(t)
+            type_env = type_env.add(define.sym, s)
+            if verbose:
+                if s.is_dummy():
+                    print('define: {} :: {}'.format(define.sym.v, t))
+                else:
+                    print('define: {} :: {}'.format(define.sym.v, s))
+
+        for expr_form in expr_forms:
+            ir_expr, errs = parse_ir_expr(expr_form)
+            ir_terms.append(ir_expr)
+            errors.extend(errs)
+            if len(errors) > 0:
+                continue
+            t, msg = infer_sys.solve_ir_expr(type_env, ir_expr)
+            if msg is not None:
+                msg = "type error, unification error {}".format(msg)
+                errors.append(ParseError(expr_form.span, msg))
+                continue
+            if verbose:
+                print('expr: {} :: {}'.format(ir_expr.to_raw(), t))
+
+        return code_gens, record_names, ir_terms, errors
+
+        '''
         for expr in other_forms:
             if isinstance(expr, RList):
                 if len(expr.v) == 0:
@@ -229,9 +302,9 @@ class TypeChecker(object):
                     continue
                 if verbose:
                     print('literal: {} :: {}'.format(lit.to_raw(), t))
-
         return code_gens, record_names, ir_terms, errors
 
+        '''
 
 def main():
     parser = ArgumentParser(description='script used to check typed-scheme type')

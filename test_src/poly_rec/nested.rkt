@@ -12,6 +12,8 @@
 
 
 (define (length [n (Nest a)]) Number (match n
-    [(Nest.None) 1]
+    [(Nest.None) 0]
     [(Nest.Nest _ xs) (+ 1 (length xs))]
 ))
+
+(print (length nested))
