@@ -130,6 +130,20 @@ class RString(RExpr):
         return 'RString[{}]'.format(repr(self.v))
 
 
+
+class RChar(RExpr):
+
+    def __init__(self, v: str, span=None):
+        super(RChar, self).__init__(span=span)
+        self.v = v
+
+    def __str__(self):
+        return self.v
+
+    def __repr__(self):
+        return 'RChar[{}]'.format(repr(self.v))
+
+
 class RFloat(RExpr):
 
     def __init__(self, v: float, span=None):

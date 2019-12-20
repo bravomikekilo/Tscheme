@@ -31,6 +31,8 @@ def parse_lit(expr: RExpr) -> IRLit:
         return IRBool(expr.v)
     elif isinstance(expr, RString):
         return IRString(expr.v)
+    elif isinstance(expr, RChar):
+        return IRChar(expr.v)
     elif isinstance(expr, RList):
         ret = [parse_lit(v) for v in expr.v]
         return IRList(ret)
@@ -499,6 +501,8 @@ def parse_type_decl(env: (Set[str], Mapping[str, int]), r_expr: RExpr) -> (Type,
             ret_type = TYPE_SYMBOL
         elif sym == 'String':
             ret_type = TYPE_STRING
+        elif sym == 'Char':
+            ret_type = TYPE_CHAR
         elif sym == 'Unit':
             ret_type = TYPE_UNIT
         elif str.isupper(sym[0]):

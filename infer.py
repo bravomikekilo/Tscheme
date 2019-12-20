@@ -18,6 +18,13 @@ class UniException(Exception):
         self.why = why
 
 
+class UnboundedVarException(UniException):
+
+    def __init__(self, sym: str):
+        error = "Unbounded variable {}".format(sym)
+        super(UnboundedVarException, self).__init__(error)
+
+
 class TypeMismatchException(UniException):
 
     def __init__(self, t1: Type, t2: Type):
@@ -150,6 +157,7 @@ class TypeEnv(object):
             return Defined("List", [t_var])
 
         ops = {
+            # number operation
             '+': TArr.func(number, number, number),
             '-': TArr.func(number, number, number),
             '*': TArr.func(number, number, number),
@@ -157,19 +165,53 @@ class TypeEnv(object):
             '=': TArr.func(number, number, bool),
             '>': TArr.func(number, number, bool),
             '<': TArr.func(number, number, bool),
+
+            # generic compare
+            'eq?': TArr.func(a, a, bool),
+
+            # logic operation
             'and': TArr.func(bool, bool, bool),
             'or': TArr.func(bool, bool, bool),
             'not': TArr.func(bool, bool),
-            'rand': TArr.func(TYPE_UNIT, number),
+
+            # random number
+            'rnd': TArr.func(TYPE_UNIT, number),
+
+            # list operation
             'cons': TArr.func(a, listof(a), listof(a)),
             'car': TArr.func(listof(a), a),
             'cdr': TArr.func(listof(a), listof(a)),
             'Cons': TArr.func(a, listof(a), listof(a)),
             'Nil': listof(a),
             'null': listof(a),
+
+            # I/O function
             'print': TArr.func(a, TYPE_UNIT),
             'println': TArr.func(a, TYPE_UNIT),
+            'display': TArr.func(a, TYPE_UNIT),
             "read-line": TArr.func(TYPE_UNIT, TYPE_STRING),
+
+            # type conversion
+            "char->integer": TArr.func(TYPE_CHAR, TYPE_NUMBER),
+            "integer->char": TArr.func(TYPE_NUMBER, TYPE_CHAR),
+
+
+            # string function
+            "string-length": TArr.func(TYPE_STRING, TYPE_NUMBER),
+            "string-ref": TArr.func(TYPE_STRING, TYPE_NUMBER, TYPE_CHAR),
+            "sub-string": TArr.func(TYPE_STRING, TYPE_NUMBER, TYPE_NUMBER),
+            "string-copy": TArr.func(TYPE_STRING, TYPE_STRING),
+            "string-append": TArr.func(TYPE_STRING, TYPE_STRING, TYPE_STRING),
+            "string->list": TArr.func(TYPE_STRING, listof(TYPE_CHAR)),
+            "list->string": TArr.func(listof(TYPE_CHAR), TYPE_STRING),
+
+            # char function
+            "char-alphabetic?": TArr.func(TYPE_CHAR, TYPE_BOOL),
+            "char-lower-case?": TArr.func(TYPE_CHAR, TYPE_BOOL),
+            "char-upper-case?": TArr.func(TYPE_CHAR, TYPE_BOOL),
+            "char-whitespace?": TArr.func(TYPE_CHAR, TYPE_BOOL),
+            "char-upcase": TArr.func(TYPE_CHAR, TYPE_CHAR),
+            "char-downcase": TArr.func(TYPE_CHAR, TYPE_CHAR),
         }
 
         ops = TypeEnv.ops_to_env(ops)
@@ -240,15 +282,17 @@ class InferSys(object):
 
     def infer_ir_lit(self, ir_lit: IRLit) -> Type:
         if isinstance(ir_lit, IRInt):
-            return TConst("Number")
+            return TYPE_NUMBER
         elif isinstance(ir_lit, IRFloat):
-            return TConst("Number")
+            return TYPE_NUMBER
         elif isinstance(ir_lit, IRBool):
-            return TConst("Bool")
+            return TYPE_BOOL
         elif isinstance(ir_lit, IRSymbol):
-            return TConst("Symbol")
+            return TYPE_SYMBOL
         elif isinstance(ir_lit, IRString):
-            return TConst("String")
+            return TYPE_STRING
+        elif isinstance(ir_lit, IRChar):
+            return TYPE_CHAR
         elif isinstance(ir_lit, IRList):
             if len(ir_lit.v) == 0:
                 return Defined("List", [self.new_type_var()])
@@ -267,7 +311,7 @@ class InferSys(object):
         if isinstance(ir_expr, IRVar):
             out = env.get(ir_expr)
             if out is None:
-                raise ValueError("unbound symbol {}", ir_expr.v)
+                raise UnboundedVarException(ir_expr.v)
             return self.inst(out)
 
         if isinstance(ir_expr, IRApply):
@@ -464,20 +508,35 @@ class InferSys(object):
 
         return define_type
 
-    def solve_ir_expr(self, env: TypeEnv, expr: IRExpr):
-        t = self.infer_ir_expr(env, expr)
-        subst = self.solve_curr_equation()
-        return t.apply(subst)
+    def try_solve_curr_equations(self):
+        try:
+            subst = self.solve_curr_equation()
+            return subst, None
+        except UniException as e:
+            return None, e.why
 
-    def solve_ir_define(self, env: TypeEnv, define: IRDefine):
+    def solve_ir_expr(self, env: TypeEnv, expr: IRExpr) -> (Type, str):
+        t = self.infer_ir_expr(env, expr)
+        subst, error = self.try_solve_curr_equations()
+
+        if subst is not None:
+            return t.apply(subst), error
+        return None, error
+
+    def solve_ir_define(self, env: TypeEnv, define: IRDefine) -> (Type, str):
         t = self.infer_ir_define(env, define)
-        subst = self.solve_curr_equation()
-        return t.apply(subst)
+        subst, error = self.try_solve_curr_equations()
+
+        if subst is not None:
+            return t.apply(subst), error
+        return None, error
 
     def solve_var_define(self, env: TypeEnv, define: IRVarDefine):
         t = self.infer_var_define(env, define)
-        subst = self.solve_curr_equation()
-        return t.apply(subst)
+        subst, error = self.try_solve_curr_equations()
+        if subst is not None:
+            return t.apply(subst), error
+        return None, t.apply(subst)
 
     def solve_curr_equation(self) -> Subst:
         return unifies(self.equations)

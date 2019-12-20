@@ -1,1 +1,1 @@
-(lambda () (+ (rand) (rand)))
+(lambda () (+ (rnd) (rnd)))

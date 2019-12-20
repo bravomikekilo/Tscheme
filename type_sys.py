@@ -81,6 +81,7 @@ class TConst(Type):
 TYPE_BOOL = TConst("Bool")
 TYPE_NUMBER = TConst("Number")
 TYPE_STRING = TConst("String")
+TYPE_CHAR = TConst("Char")
 TYPE_SYMBOL = TConst("Symbol")
 TYPE_UNIT = TConst("Unit")
 

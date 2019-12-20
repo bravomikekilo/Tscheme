@@ -67,6 +67,8 @@ def symbol():
         return RBool(True, span=ran)
     elif raw == '#f':
         return RBool(False, span=ran)
+    elif raw.startswith('#\\'):
+        return RChar(raw)
     else:
         return RSymbol(raw, span=ran)
 

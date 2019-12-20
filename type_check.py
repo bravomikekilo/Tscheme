@@ -11,7 +11,8 @@ from code_gen import CodeGen, SumCtor
 from argparse import ArgumentParser
 
 
-def extract_type(forms: [RExpr]) -> (([RExpr], Set[str], Mapping[str, Type], Mapping[str, Type], [CodeGen]), [ParseError]):
+def extract_type(forms: [RExpr]) -> (
+        ([RExpr], Set[str], Mapping[str, Type], Mapping[str, Type], [CodeGen]), [ParseError]):
     errors = []
     record_names = set()
     types = OrderedDict()
@@ -129,7 +130,7 @@ class TypeChecker(object):
         for expr in other_forms:
             if isinstance(expr, RList):
                 if len(expr.v) == 0:
-                    errors.append("empty application on top level, error")
+                    errors.append(ParseError(expr.span, "empty application on top level, error"))
                     continue
                 head = expr.v[0]
                 if isinstance(head, RSymbol):
@@ -141,30 +142,39 @@ class TypeChecker(object):
                         if len(errs) > 0:
                             continue
                         if isinstance(define, IRDefine):
-                            t = infer_sys.solve_ir_define(type_env, define)
+                            t, msg = infer_sys.solve_ir_define(type_env, define)
                         else:
-                            t = infer_sys.solve_var_define(type_env, define)
+                            t, msg = infer_sys.solve_var_define(type_env, define)
+
+                        if msg is not None:
+                            errors.append(
+                                ParseError(
+                                    expr.span,
+                                    'type error, unification error: {}'.format(msg)
+                                )
+                            )
+                            continue
 
                         if define.anno is not None:
                             anno = define.anno
                             matched, subst = confirm(t, anno)
                             print('origin solved type', t)
                             if not matched:
-                                msg = 'define {} type mismatch, infered {}, but annotation is {}'\
+                                msg = 'define {} type mismatch, infered {}, but annotation is {}' \
                                     .format(define.sym.v, t.apply(subst), anno)
                                 print(ParseError(expr.span, msg))
                             else:
-                                msg = 'define {} type fullfilled, infered {}, annotation is {}'\
+                                if isinstance(anno, TArr) and (None in anno.flatten()):
+                                    msg = 'define {} type fullfilled, infered {}, annotation is {}' \
                                         .format(define.sym.v, t.apply(subst), anno)
-                                print(ParseError(expr.span, msg))
-                            s = infer_sys.generalize(t)
-                        else:
-                            s = infer_sys.generalize(t)
+                                    print(ParseError(expr.span, msg))
+                        s = infer_sys.generalize(t)
+
                         if define.anno is not None:
                             match, subst = confirm(t, define.anno)
                             if not match:
-                                msg = 'type mismatch in define {}, annotation is {}, but infered is {}'\
-                                        .format(define.sym.v, define.anno, t.apply(subst))
+                                msg = 'type mismatch in define {}, annotation is {}, but infered is {}' \
+                                    .format(define.sym.v, define.anno, t.apply(subst))
                                 errors.append(ParseError(expr.span, msg))
                         type_env = type_env.add(define.sym, s)
                         if verbose:
@@ -179,7 +189,12 @@ class TypeChecker(object):
                         errors.extend(errs)
                         if len(errs) > 0:
                             continue
-                        t = infer_sys.solve_ir_expr(type_env, ir_expr)
+                        t, msg = infer_sys.solve_ir_expr(type_env, ir_expr)
+                        if msg is not None:
+                            msg = "type error, unification error {}".format(msg)
+                            errors.append(ParseError(expr.span, msg))
+                            continue
+
                         if verbose:
                             print('expr: {} :: {}'.format(ir_expr.to_raw(), t))
                 else:
@@ -189,7 +204,11 @@ class TypeChecker(object):
                         errors.extend(errs)
                         if len(errors) > 0:
                             continue
-                        t = infer_sys.solve_ir_expr(type_env, ir_expr)
+                        t, msg = infer_sys.solve_ir_expr(type_env, ir_expr)
+                        if msg is not None:
+                            msg = "type error, unification error {}".format(msg)
+                            errors.append(ParseError(expr.span, msg))
+                            continue
                         if verbose:
                             print('expr: {} :: {}'.format(ir_expr.to_raw(), t))
                     else:
@@ -198,7 +217,11 @@ class TypeChecker(object):
             else:
                 lit = parse_lit(expr)
                 ir_terms.append(expr)
-                t = infer_sys.solve_ir_expr(type_env, lit)
+                t, msg = infer_sys.solve_ir_expr(type_env, lit)
+                if msg is not None:
+                    msg = "type error, unification error {}".format(msg)
+                    errors.append(ParseError(expr.span, msg))
+                    continue
                 if verbose:
                     print('literal: {} :: {}'.format(lit.to_raw(), t))
 

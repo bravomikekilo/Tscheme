@@ -82,6 +82,19 @@ class IRString(IRLit):
         return [' ' * indent + repr(self.v)]
 
 
+class IRChar(IRLit):
+
+    def __init__(self, v: str):
+        super(IRChar, self).__init__()
+        self.v = v
+
+    def to_lit(self) -> RExpr:
+        return RChar(self.v)
+
+    def print(self, indent=0) -> [str]:
+        return [' ' * indent + repr(self.v)]
+
+
 class IRList(IRLit):
 
     def __init__(self, v: [IRLit], sq=False):
