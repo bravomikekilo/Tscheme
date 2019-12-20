@@ -2,9 +2,9 @@
 
 
 ## 项目结构
-项目主要使用Python进行实现
+项目主要使用Python进行实现, 代码总量达到3500+行
 所需要的Python 版本是3.6及以上
-所需的依赖包仅有一个， 列写在**requirements.txt**中。可以通过以下命令安装
+所需的依赖包仅有四个， 列写在**requirements.txt**中。可以通过以下命令安装
 ```shell script
 pip3 install -r requirements.txt
 ```
@@ -101,6 +101,5 @@ compiler.py 默认输出的路径是out.rkt
     [(Cons x xs) (f x (foldr f x0 xs))]
     [(Nil) x0]
 ))
-
 
 ```
