@@ -36,6 +36,13 @@ class SumCtor(Ctor):
         arity = ctor_type.arity() - 1
         args = [RSymbol(chr(ord('a') + i)) for i in range(arity)]
 
+        if arity == 0:
+            return RList([
+                RSymbol('define'),
+                RSymbol(ctor_name),
+                quote(RSymbol(ctor_name))
+            ])
+
         arg_list = [RSymbol(ctor_name)]
         arg_list.extend(args)
 
@@ -84,6 +91,7 @@ class RecordExtractor(CodeGen):
 def gen_ctor_define(ctor_name: str, ctor_type: Type) -> Optional[RList]:
     if ctor_name == 'Cons':
         return None
+
     if ctor_name == 'Nil':
         return None
 

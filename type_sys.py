@@ -133,6 +133,16 @@ class TArr(Type):
             return TArr(new_in_type, new_out_type)
 
     def ftv(self) -> Set[str]:
+
+        if self.out_type is None and self.in_type is None:
+            return set()
+
+        if self.out_type is None:
+            return self.in_type.ftv()
+
+        if self.in_type is None:
+            return self.out_type.ftv()
+
         return self.in_type.ftv().union(self.out_type.ftv())
 
     def flatten(self) -> [Type]:

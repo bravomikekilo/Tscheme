@@ -7,6 +7,8 @@ from ir_parse import parse_define, parse_ir_expr, parse_lit
 from collections import OrderedDict
 from parsing import whole_program
 from code_gen import CodeGen, SumCtor
+from more_itertools import tail
+
 
 from argparse import ArgumentParser
 
@@ -22,6 +24,8 @@ def extract_type(forms: [RExpr]) -> (
     type_forms = [form for form in forms if is_type_def(form)]
     other_forms = [form for form in forms if not is_type_def(form)]
 
+    types['List'] = Defined("List", [TVar('a')])
+
     # first parse out all types declarations
     for r_expr in type_forms:
         defined, defined_errors = parse_define_type(r_expr)
@@ -36,7 +40,9 @@ def extract_type(forms: [RExpr]) -> (
 
     arity = {k: len(v.types) for k, v in types.items()}
 
-    for r_expr, (name, t) in zip(type_forms, types.items()):
+    type_items = iter(types.items())
+    next(type_items)
+    for r_expr, (name, t) in zip(type_forms, type_items):
         if r_expr.v[0].v == 'define-record':
             # parse record type ctor and extractor
             record_names.add(name)

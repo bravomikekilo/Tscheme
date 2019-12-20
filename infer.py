@@ -5,6 +5,7 @@ from typing import List
 from ir_lit import *
 from ir_pat import *
 from type_sys import *
+from collections import OrderedDict
 
 Subst = Mapping[str, Type]
 Constraint = T[Type, Type]
@@ -487,6 +488,7 @@ class InferSys(object):
         sym = define.sym
         args = define.args
         body = define.body
+
         args_type = [self.new_type_var() for _ in args]
         if len(args_type) == 0:
             args_type.append(TYPE_UNIT)
@@ -516,30 +518,50 @@ class InferSys(object):
             return None, e.why
 
     def solve_ir_expr(self, env: TypeEnv, expr: IRExpr) -> (Type, str):
-        t = self.infer_ir_expr(env, expr)
-        subst, error = self.try_solve_curr_equations()
+        try:
+            t = self.infer_ir_expr(env, expr)
+            subst = self.solve_curr_equation()
+        except UniException as e:
+            return None, e.why
 
-        if subst is not None:
-            return t.apply(subst), error
-        return None, error
+        return t.apply(subst), None
 
     def solve_ir_define(self, env: TypeEnv, define: IRDefine) -> (Type, str):
-        t = self.infer_ir_define(env, define)
-        subst, error = self.try_solve_curr_equations()
+        try:
+            t = self.infer_ir_define(env, define)
+            subst = self.solve_curr_equation()
+        except UniException as e:
+            return None, e.why
 
-        if subst is not None:
-            return t.apply(subst), error
-        return None, error
+        return t.apply(subst), None
 
     def solve_var_define(self, env: TypeEnv, define: IRVarDefine):
-        t = self.infer_var_define(env, define)
-        subst, error = self.try_solve_curr_equations()
-        if subst is not None:
-            return t.apply(subst), error
-        return None, t.apply(subst)
+        try:
+            t = self.infer_var_define(env, define)
+            subst = self.solve_curr_equation()
+        except UniException as e:
+            return None, e.why
+
+        return t.apply(subst), None
 
     def solve_curr_equation(self) -> Subst:
         return unifies(self.equations)
+
+
+def anno_to_schema(anno: Type, sys: InferSys):
+    ftv = anno.ftv()
+
+    subst = OrderedDict()
+    for f in ftv:
+        subst[f] = sys.new_type_var()
+    free_vars = list(subst.values())
+
+    if isinstance(anno, TArr):
+        ts = anno.flatten()
+        ts = [(sys.new_type_var() if t is None else t) for t in ts]
+        anno = TArr.func(*ts)
+
+    return Schema(anno.apply(subst), free_vars)
 
 
 def confirm(infered: Type, anno: Type, subst=None) -> (bool, Mapping[str, TVar]):
