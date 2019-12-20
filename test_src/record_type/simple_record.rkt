@@ -17,7 +17,7 @@
 
 (define (rect-area-match rect)
         (match rect
-               [(Rect [Point right-x up-y] [Point left-x down-y] )
+               [(Rect [Point right-x up-y] [Point left-x down-y])
                 (* (- up-y down-y)
                    (- left-x right-x))]))
 
